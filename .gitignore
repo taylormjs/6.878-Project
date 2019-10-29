@@ -1,0 +1,20 @@
+# Ignore everything
+*
+
+# Except the following files:
+!.gitignore
+!*.ipynb
+!*.py
+!*.md
+
+# ..even if they are in sub-folders
+!*/
+
+
+# Ignore jupyter nb checkpoints (which contains ipynb files)
+*.ipynb_checkpoints/
+*.ipynb_checkpoints/*
+
+# ignore pycharm folders
+__pycache__
+
