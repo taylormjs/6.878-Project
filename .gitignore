@@ -9,6 +9,7 @@
 
 # ..even if they are in sub-folders
 !*/
+!*.R
 
 
 # Ignore jupyter nb checkpoints (which contains ipynb files)
@@ -17,4 +18,3 @@
 
 # ignore pycharm folders
 __pycache__
-
