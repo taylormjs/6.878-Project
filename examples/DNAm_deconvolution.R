@@ -84,4 +84,8 @@ for (i in 1:length(out.coe)) {
 }
 
 
+testFunction = function(a) {
+  return(2 * a)
+}
+
 
