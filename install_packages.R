@@ -13,3 +13,9 @@ BiocManager::install("Biobase")
 library("EpiDISH")
 library("Biobase")
 library("GEOquery")
+
+# https://github.com/mdonoghoe/addreg
+install.packages("addreg")
+
+# install.packages("devtools")
+# devtools::install_github("mdonoghoe/addreg")
