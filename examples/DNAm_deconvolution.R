@@ -45,7 +45,7 @@ boxplot(cellfrac.m)
 # celldmc.o <- CellDMC(beta.m, pheno.v.binary, cellfrac.m)
 
 # save(celldmc.o, file="martino2015_celldmc.o")
-load("martino2015_celldmc.o")
+load("../analysis/martino2015_celldmc.o")
 
 # See: https://bioconductor.org/packages/release/bioc/manuals/EpiDISH/man/EpiDISH.pdf
 # DMC = Differentially Methylated Cytosines

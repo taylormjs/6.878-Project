@@ -8,6 +8,7 @@ source("epidish_helpers.R")
 # See: https://www.ncbi.nlm.nih.gov/geo/geo2r/?acc=GSE59999
 # This will use a cached version if it is found! Still has to unzip though (takes about a minute).
 
+# NOTE(milo): Only need to run this once!
 download_and_save_data_to_analysis_folder = function() {
   # Load MARTINO 2018.
   gset.martino2018 <- getGEO("GSE114134", GSEMatrix =TRUE, getGPL=FALSE)
@@ -22,27 +23,31 @@ download_and_save_data_to_analysis_folder = function() {
   save(gset.martino2015, file="./analysis/gset.martino2015.Rda")
 }
 
+
+#================= MARTINO 2018 ===================
 # Load in the dataframes if possible to avoid the parsing time.
 load("./analysis/gset.martino2018.Rda")
-load("./analysis/gset.martino2015.Rda")
-
 pheno.martino2018 = makeBinaryPhenotypesMartino2018(gset.martino2018)
-pheno.martino2015 = makeBinaryPhenotypesMartino2015(gset.martino2015)
-
 beta.m.martino2018 = getBetaMatrixMartino2018(gset.martino2018)
-beta.m.martino2015 = getBetaMatrixMartino2015(gset.martino2015)
-
 cellfrac.m.martino2018 = getEpidishCellFrac(beta.m.martino2018)
-cellfrac.m.martino2015 = getEpidishCellFrac(beta.m.martino2015)
 
 # NOTE(milo): This should be entirely CD4T cells!
 boxplot(cellfrac.m.martino2018)
 
-# martino2015.celldmc.o <- CellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015)
-# save(martino2015.celldmc.o, file="./analysis/martino2015_celldmc.o")
+# Need to drop everything except CD4T and CD8T otherwise this will fail!
+cellfrac.m.martino2018 = cellfrac.m.martino2018[,c("CD4T", "CD8T")]
+boxplot(cellfrac.m.martino2018)
 
 martino2018.celldmc.o <- CellDMC(beta.m.martino2018, pheno.martino2018, cellfrac.m.martino2018)
-# save(martino2018.celldmc.o, file="./analysis/martino2018_celldmc.o")
+save(martino2018.celldmc.o, file="./analysis/martino2018_celldmc.o")
+#==================================================
 
-
-
+#================= MARTINO 2015 ===================
+# Load in the dataframes if possible to avoid the parsing time.
+load("./analysis/gset.martino2015.Rda")
+pheno.martino2015 = makeBinaryPhenotypesMartino2015(gset.martino2015)
+beta.m.martino2015 = getBetaMatrixMartino2015(gset.martino2015)
+cellfrac.m.martino2015 = getEpidishCellFrac(beta.m.martino2015)
+martino2015.celldmc.o <- CellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015)
+# save(martino2015.celldmc.o, file="./analysis/martino2015_celldmc.o")
+#==================================================
