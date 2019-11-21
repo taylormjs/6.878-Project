@@ -35,12 +35,23 @@ cellfrac.m.martino2018 = getEpidishCellFrac(beta.m.martino2018)
 boxplot(cellfrac.m.martino2018)
 
 # Need to drop everything except CD4T and CD8T otherwise this will fail!
+# https://adv-r.hadley.nz/subsetting.html
 cellfrac.m.martino2018 = cellfrac.m.martino2018[,c("CD4T", "CD8T")]
 boxplot(cellfrac.m.martino2018)
 
 martino2018.celldmc.o <- CellDMC(beta.m.martino2018, pheno.martino2018, cellfrac.m.martino2018)
-save(martino2018.celldmc.o, file="./analysis/martino2018_celldmc.o")
+# save(martino2018.celldmc.o, file="./analysis/martino2018_celldmc.o")
+
+load("./analysis/martino2018_celldmc.o")
+summarizeDMCTs(martino2018.celldmc.o)
+
+# Write things to .csv so we can escape R.
+dmct = martino2018.celldmc.o$dmct
+coe = martino2018.celldmc.o$coe
+write.csv(dmct, file="./analysis/martino2018_dmct.csv")
+write.csv(coe, file="./analysis/martino2018_coe.csv")
 #==================================================
+
 
 #================= MARTINO 2015 ===================
 # Load in the dataframes if possible to avoid the parsing time.
@@ -49,5 +60,14 @@ pheno.martino2015 = makeBinaryPhenotypesMartino2015(gset.martino2015)
 beta.m.martino2015 = getBetaMatrixMartino2015(gset.martino2015)
 cellfrac.m.martino2015 = getEpidishCellFrac(beta.m.martino2015)
 martino2015.celldmc.o <- CellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015)
-# save(martino2015.celldmc.o, file="./analysis/martino2015_celldmc.o")
+save(martino2015.celldmc.o, file="./analysis/martino2015_celldmc.o")
+
+load("./analysis/martino2015_celldmc.o")
+summarizeDMCTs(martino2015.celldmc.o)
+
+# Write things to .csv so we can escape R.
+dmct = martino2015.celldmc.o$dmct
+coe = martino2015.celldmc.o$coe
+write.csv(dmct, file="./analysis/martino2015_dmct.csv")
+write.csv(coe, file="./analysis/martino2015_coe.csv")
 #==================================================
