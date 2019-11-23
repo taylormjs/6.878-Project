@@ -3,6 +3,7 @@ library(GEOquery)   # For downloading GEO2R data.
 library(EpiDISH)
 
 source("epidish_helpers.R")
+source("modified_celldmc.R")
 
 #================= COPIED FROM GEO2R ======================
 # See: https://www.ncbi.nlm.nih.gov/geo/geo2r/?acc=GSE59999
@@ -59,15 +60,19 @@ load("./analysis/gset.martino2015.Rda")
 pheno.martino2015 = makeBinaryPhenotypesMartino2015(gset.martino2015)
 beta.m.martino2015 = getBetaMatrixMartino2015(gset.martino2015)
 cellfrac.m.martino2015 = getEpidishCellFrac(beta.m.martino2015)
-martino2015.celldmc.o <- CellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015)
+
+# beta.m.martino2015 = beta.m.martino2015[1:100,]
+
+# martino2015.celldmc.o <- CellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015)
+martino2015.celldmc.o <- ModifiedCellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015,
+                                         mc.cores=6)
 save(martino2015.celldmc.o, file="./analysis/martino2015_celldmc.o")
 
 load("./analysis/martino2015_celldmc.o")
 summarizeDMCTs(martino2015.celldmc.o)
 
 # Write things to .csv so we can escape R.
-dmct = martino2015.celldmc.o$dmct
-coe = martino2015.celldmc.o$coe
-write.csv(dmct, file="./analysis/martino2015_dmct.csv")
-write.csv(coe, file="./analysis/martino2015_coe.csv")
+write.csv(martino2015.celldmc.o$dmct, file="./analysis/martino2015_dmct.csv")
+write.csv(martino2015.celldmc.o$coe.change, file="./analysis/martino2015_coe_change.csv")
+write.csv(martino2015.celldmc.o$coe.control, file="./analysis/martino2015_coe_control.csv")
 #==================================================
