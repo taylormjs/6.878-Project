@@ -45,48 +45,54 @@ ModifiedCellDMC <- function(beta.m, pheno.v, frac.m,
   # delta in beta values due to the disease or control phenotype. I think if we return the coefficients
   # for the frac.* terms, this is the beta values for the average control person.
   
+  # We want to grab the frac.m.CELLTYPE columns as well as the CELLTYPEPheno columns.
+  AllNames.v = c(str_c("frac.m", colnames(frac.m)), IntNames.v)
+  
+  print("All names:")
+  print(AllNames.v)
+  
   ### fit linear model for each CpG
   allCoe.m <- do.call(rbind, mclapply(seq_len(nrow(beta.m)), function(i) {
     beta.v <- beta.m[i, ]
     ### model
     Int.o <- lm(beta.v ~ ., data = data.frame(design))
 
-    ### get coe
-    # "BPheno"      "NKPheno"     "CD4TPheno"   "CD8TPheno"   "MonoPheno"   "NeutroPheno" "EosinoPheno
     # IntCoe.m <- summary(Int.o)$coe[IntNames.v, ]
-    print("colnames:")
-    print(colnames(Int.o))
-
-    # NOTE(milo): We want all coefficients, not just the disease associated ones.
-    IntCoe.m <- summary(Int.o)$coe
+    IntCoe.m <- summary(Int.o)$coe[AllNames.v, ]
     IntCoe.v <- unlist(apply(IntCoe.m, 1, function(x) list(x)))
-    
+
     names(IntCoe.v) <- NULL
     return(IntCoe.v)
   }, mc.preschedule = TRUE, mc.cores = mc.cores, mc.allow.recursive = TRUE))
   
   # Get CONTROL coefficients for each cell type.
+  # The first 4*num_cell_types things are the CONTROL coefficients.
   coe.control = lapply(seq_len(ncol(frac.m)), function(j) {
     idx <- ((j - 1)*4 + 1):((j - 1)*4 + 4)
     tmp.m <- allCoe.m[, idx]
     tmp.m <- cbind(tmp.m, p.adjust(tmp.m[, 4], method = adjPMethod))
-    if (is.beta) { 
+    if (is.beta) {
       tmp.m[which(tmp.m[,1] > 1),1] <- 1
       tmp.m[which(tmp.m[,1] < -1),1] <- -1
     }  ### if input is a beta values matrix, bound the estimated changes
-    
+
     colnames(tmp.m) <- c("Estimate", "SE", "t", "p", "adjP")
     rownames(tmp.m) <- rownames(beta.m)
     return(data.frame(tmp.m))
   })
   
+  print(dim(allCoe.m))
+  
   # Get the DISEASE coefficients (differential methylation) for each cell type.
   # NOTE(milo): Because we're keeping more coefficients in allCoe.m, we need to offset
   # by the number of cell types so that the old epidish stuff still works.
   offset_to_disease_coe = ncol(frac.m)
+
   coe.ld <- lapply(seq_len(ncol(frac.m)) + offset_to_disease_coe, function(j) {
     idx <- ((j - 1)*4 + 1):((j - 1)*4 + 4)
     tmp.m <- allCoe.m[, idx]
+    
+    # Adjust the p-value of the 4th column.
     tmp.m <- cbind(tmp.m, p.adjust(tmp.m[, 4], method = adjPMethod))
     if (is.beta) { 
       tmp.m[which(tmp.m[,1] > 1),1] <- 1

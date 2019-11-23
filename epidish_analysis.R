@@ -40,7 +40,12 @@ boxplot(cellfrac.m.martino2018)
 cellfrac.m.martino2018 = cellfrac.m.martino2018[,c("CD4T", "CD8T")]
 boxplot(cellfrac.m.martino2018)
 
-martino2018.celldmc.o <- CellDMC(beta.m.martino2018, pheno.martino2018, cellfrac.m.martino2018)
+# beta.m.martino2018 = betaIntNames.v, .m.martino2018[1:100,]
+
+# martino2018.celldmc.o <- CellDMC(beta.m.martino2018, pheno.martino2018, cellfrac.m.martino2018,
+#                                  mc.cores=6)
+martino2018.celldmc.o <- ModifiedCellDMC(beta.m.martino2018, pheno.martino2018, cellfrac.m.martino2018,
+                                 mc.cores=6)
 # save(martino2018.celldmc.o, file="./analysis/martino2018_celldmc.o")
 
 load("./analysis/martino2018_celldmc.o")
@@ -60,12 +65,14 @@ load("./analysis/gset.martino2015.Rda")
 pheno.martino2015 = makeBinaryPhenotypesMartino2015(gset.martino2015)
 beta.m.martino2015 = getBetaMatrixMartino2015(gset.martino2015)
 cellfrac.m.martino2015 = getEpidishCellFrac(beta.m.martino2015)
+boxplot(cellfrac.m.martino2015)
 
 # beta.m.martino2015 = beta.m.martino2015[1:100,]
 
-# martino2015.celldmc.o <- CellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015)
-martino2015.celldmc.o <- ModifiedCellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015,
-                                         mc.cores=6)
+martino2015.celldmc.o <- CellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015,
+                                 mc.cores=6)
+# martino2015.celldmc.o <- ModifiedCellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015,
+#                                          mc.cores=6)
 save(martino2015.celldmc.o, file="./analysis/martino2015_celldmc.o")
 
 load("./analysis/martino2015_celldmc.o")
