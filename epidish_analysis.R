@@ -90,4 +90,8 @@ summarizeDMCTs(martino2015.celldmc.o)
 write.csv(martino2015.celldmc.o$dmct, file="./analysis/martino2015_dmct.csv")
 write.csv(martino2015.celldmc.o$coe.change, file="./analysis/martino2015_coe_change.csv")
 write.csv(martino2015.celldmc.o$coe.control, file="./analysis/martino2015_coe_control.csv")
+write.csv(cellfrac.m.martino2015, file="./analysis/martino2015_cellfrac.csv")
+
+martino2015.phenotypes = gset.martino2015@phenoData@data
+write.csv(martino2015.phenotypes, file="./analysis/martino2015_phenotypes.csv")
 #==================================================

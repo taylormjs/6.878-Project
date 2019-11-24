@@ -3,9 +3,12 @@ import pandas as pd
 
 
 def load_epidish_results_martino2015():
-  coe_control = pd.read_csv("./analysis/martino2015_coe_control.csv")
-  coe_change = pd.read_csv("./analysis/martino2015_coe_change.csv")
-  return coe_control, coe_change
+  # NOTE(milo): index_col = 0 sets the first column as the row names.
+  coe_control = pd.read_csv("./analysis/martino2015_coe_control.csv", index_col=0)
+  coe_change = pd.read_csv("./analysis/martino2015_coe_change.csv", index_col=0)
+  cell_frac = pd.read_csv("./analysis/martino2015_cellfrac.csv", index_col=0)
+  pheno = pd.read_csv("./analysis/martino2015_phenotypes.csv", index_col=0)
+  return coe_control, coe_change, cell_frac, pheno
 
 
 def cell_methylation_matrices(coe_control, coe_change, cell_types):
@@ -23,17 +26,17 @@ def cell_methylation_matrices(coe_control, coe_change, cell_types):
 
   # Make the control matrix.
   M_control = coe_control[estimate_colnames]
-  M_control_stdev = coe_control[se_colnames]
+  M_control_var = coe_control[se_colnames] ** 2
   assert(M_control.shape == (num_cpg_locations, num_cell_types))
-  assert(M_control_stdev.shape == (num_cpg_locations, num_cell_types))
+  assert(M_control_var.shape == (num_cpg_locations, num_cell_types))
 
   # Make the disease matrix (control + change).
   M_disease = M_control + coe_change[estimate_colnames]
-  M_disease_stdev = M_control_stdev + coe_change[se_colnames]
+  M_disease_var = M_control_var + coe_change[se_colnames] ** 2
   assert(M_disease.shape == (num_cpg_locations, num_cell_types))
-  assert(M_disease_stdev.shape == (num_cpg_locations, num_cell_types))
+  assert(M_disease_var.shape == (num_cpg_locations, num_cell_types))
 
-  return M_control, M_control_stdev, M_disease, M_disease_stdev
+  return M_control, M_control_var, M_disease, M_disease_var
 
 
 def report_significant_cpgs(cell_types, coe_change, p_value_thresh=0.05):
@@ -74,8 +77,31 @@ def rename_control_cols(coe_control, cell_types):
   return coe_control
 
 
+def predict_bulk_dnam(M_control, M_control_var, M_disease, M_disease_var, cell_fracs):
+  """
+  Predict the bulk DNAm beta values that we would expect for a control and disease person. Also
+  compute the expected variance of those predictions.
+  """
+  cell_fracs_np = cell_fracs.transpose().to_numpy()
+
+  # Multiply DNAm coeff (C x k) by cell fractions (k x N) to get a "bulk" DNAm vector for each
+  # person (C x N). Each column represents the bulk DNAm beta vector we would expect for a control
+  # or disease person.
+  M_control_np = M_control.to_numpy()
+  M_control_var_np = M_control_var.to_numpy()
+  B_control = np.dot(M_control_np, cell_fracs_np)
+  B_control_var = np.dot(M_control_var_np, cell_fracs_np)
+
+  M_disease_np = M_disease.to_numpy()
+  M_disease_var_np = M_disease_var.to_numpy()
+  B_disease = np.dot(M_disease_np, cell_fracs_np)
+  B_disease_var = np.dot(M_disease_var_np, cell_fracs_np)
+
+  return B_control, B_control_var, B_disease, B_disease_var
+
+
 def run_martino2015():
-  coe_control, coe_change = load_epidish_results_martino2015()
+  coe_control, coe_change, cell_fracs, phenotypes = load_epidish_results_martino2015()
 
   # NOTE(milo): Had to throw away Neutro in R because it was causing errors.
   cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"]
@@ -85,9 +111,24 @@ def run_martino2015():
   coe_control = rename_control_cols(coe_control, cell_types_m2015)
   # print(coe_control.columns)
 
-  # report_significant_cpgs(cell_types_m2015, coe_change)
+  report_significant_cpgs(cell_types_m2015, coe_change)
 
-  Mc, Mc_stdev, Md, Md_stdev = cell_methylation_matrices(coe_control, coe_change, cell_types_m2015)
+  Mc, Mc_var, Md, Md_var = cell_methylation_matrices(coe_control, coe_change, cell_types_m2015)
+
+  # print("============= Control Methylation by Cell Type ==============")
+  # print(Mc.head())
+  # print(Mc_stdev.head())
+
+  # print("============= Disease Methylation by Cell Type ==============")
+  # print(Md.head())
+  # print(Md_stdev.head())
+
+  # print(cell_frac.head())
+  # print(phenotypes.head())
+
+  B_control, B_control_var, B_disease, B_disease_var = predict_bulk_dnam(Mc, Mc_var, Md, Md_var, cell_fracs)
+  print("B_control:", B_control.shape)
+  print("B_control_var:", B_control_var.shape)
 
 
 if __name__ == "__main__":
