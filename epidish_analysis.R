@@ -2,6 +2,7 @@ library(Biobase)    # Boxplot for selected GEO samples.
 library(GEOquery)   # For downloading GEO2R data.
 library(EpiDISH)
 library(scales)
+library(LICORS)
 
 source("epidish_helpers.R")
 source("modified_celldmc.R")
@@ -42,7 +43,6 @@ boxplot(cellfrac.m.martino2018)
 # Need to drop everything except CD4T and CD8T otherwise this will fail!
 # https://adv-r.hadley.nz/subsetting.html
 cellfrac.m.martino2018 = cellfrac.m.martino2018[,c("CD4T", "CD8T")]
-# apply(cellfrac.m.martino2018, 1, rescale)
 boxplot(cellfrac.m.martino2018)
 
 # martino2018.celldmc.o <- CellDMC(beta.m.martino2018, pheno.martino2018, cellfrac.m.martino2018,
@@ -72,13 +72,15 @@ boxplot(cellfrac.m.martino2015)
 # NOTE(milo): We seem to run into linear regression problems when all of the cell types
 # are included. If we take this subset of cell types, the ModifiedCellDMC seems to work.
 cellfrac.m.martino2015 = cellfrac.m.martino2015[,c("B", "NK", "CD4T", "CD8T", "Mono", "Eosino")]
-# apply(cellfrac.m.martino2015, 1, rescale)
+# cellfrac.m.martino2015 = cellfrac.m.martino2015 + 1e-2
+# cellfrac.m.martino2015 = normalize(cellfrac.m.martino2015, byrow = TRUE, tol = 1e-06)
 boxplot(cellfrac.m.martino2015)
 
-# martino2015.celldmc.o <- CellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015,
-                                 # mc.cores=6)
-martino2015.celldmc.o <- ModifiedCellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015,
-                                         mc.cores=6)
+# NOTE(milo): Confirmed that my ModifiedCellDMC gives the same outputs as original CellDMC.
+martino2015.celldmc.o <- CellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015,
+                                 mc.cores=6)
+# martino2015.celldmc.o <- ModifiedCellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015,
+                                         # mc.cores=6)
 save(martino2015.celldmc.o, file="./analysis/martino2015_celldmc.o")
 
 # load("./analysis/martino2015_celldmc.o")

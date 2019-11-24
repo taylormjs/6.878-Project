@@ -21,3 +21,4 @@ install.packages("addreg")
 # devtools::install_github("mdonoghoe/addreg")
 
 install.packages("scales", dependencies=TRUE)
+install.packages("LICORS")

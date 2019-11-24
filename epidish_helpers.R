@@ -76,7 +76,13 @@ summarizeDMCTs = function(celldmc.o) {
   message(sprintf("EPIDISH found: %d DMCs", nrow(out.DMC)))
   for (i in 2:ncol(out.DMC)) {
     cell_type_name = colnames(out.DMC)[i]
-    num_dmc_celltype = nrow(dmct[dmct[,i] != 0,])
+    num_dmc_celltype = sum(dmct[,i] != 0)
+    
+    # NOTE(milo): This line below seems unreliable for the case where there is ONE row
+    # or ZERO rows that meet the condition. R will turn a matrix with one row into a
+    # different data type, and it will turn a matrix with just a header into something
+    # weird too.
+    # num_dmc_celltype = nrow(data.matrix(dmct[dmct[,i] != 0,]))
     message(sprintf("Cell type %s has %d DMCs", cell_type_name, num_dmc_celltype))
   }
 }
