@@ -7,7 +7,7 @@ library("parallel")
 library("stringr")
 library("stats")
 
-
+# https://rdrr.io/github/sjczheng/EpiDISH/src/R/CellDMC.R
 ModifiedCellDMC <- function(beta.m, pheno.v, frac.m, 
                     adjPMethod = "fdr", adjPThresh = 0.05, cov.mod = NULL, 
                     sort = FALSE, mc.cores = 1) {
@@ -35,8 +35,8 @@ ModifiedCellDMC <- function(beta.m, pheno.v, frac.m,
   design <- model.matrix(~ frac.m + pheno.v:frac.m)[, -1]
   if (!is.null(cov.mod)) design <- cbind(design, cov.mod[, -1])
   IntNames.v <- str_c(colnames(frac.m), "Pheno")
-  colnames(design)[(1 + ncol(frac.m)):(2*ncol(frac.m))] <- IntNames.v
-
+  colnames(design)[(1 + ncol(frac.m)):(2*ncol(frac.m))] <- IntNames.v 
+  
   # Design matrix has these columns:
   # [1] "frac.mB"      "frac.mNK"     "frac.mCD4T"   "frac.mCD8T"   "frac.mMono"   "frac.mNeutro"
   # [7] "frac.mEosino" "BPheno"       "NKPheno"      "CD4TPheno"    "CD8TPheno"    "MonoPheno"
@@ -44,26 +44,46 @@ ModifiedCellDMC <- function(beta.m, pheno.v, frac.m,
   # beta value for each cell type in a control individual. The other 7 terms like BPheno are the
   # delta in beta values due to the disease or control phenotype. I think if we return the coefficients
   # for the frac.* terms, this is the beta values for the average control person.
+  print(sprintf("==> Fitting these %d covariates:", length(colnames(design))))
+  print(colnames(design))
   
   # We want to grab the frac.m.CELLTYPE columns as well as the CELLTYPEPheno columns.
-  AllNames.v = c(str_c("frac.m", colnames(frac.m)), IntNames.v)
+  AllNames.v = colnames(design)
+  # AllNames.v = c(str_c("frac.m", colnames(frac.m)), IntNames.v)
   
-  print("All names:")
+  print("====================================")
+  print("Original covariates (IntNames.v):")
+  print(IntNames.v)
+  
+  print("====================================")
+  print("Our covariates (AllNames.v):")
   print(AllNames.v)
+  
+  print("====================================")
+  
+  print("==> Size of beta.m input:")
+  print(dim(beta.m))
+  
+  # print(head(data.frame(design)))
   
   ### fit linear model for each CpG
   allCoe.m <- do.call(rbind, mclapply(seq_len(nrow(beta.m)), function(i) {
     beta.v <- beta.m[i, ]
     ### model
     Int.o <- lm(beta.v ~ ., data = data.frame(design))
-
+    
+    ### get coe
     # IntCoe.m <- summary(Int.o)$coe[IntNames.v, ]
     IntCoe.m <- summary(Int.o)$coe[AllNames.v, ]
+    
     IntCoe.v <- unlist(apply(IntCoe.m, 1, function(x) list(x)))
-
+    
     names(IntCoe.v) <- NULL
     return(IntCoe.v)
   }, mc.preschedule = TRUE, mc.cores = mc.cores, mc.allow.recursive = TRUE))
+  
+  print("==> Dimensions of allCoe.m:")
+  print(dim(allCoe.m))
   
   # Get CONTROL coefficients for each cell type.
   # The first 4*num_cell_types things are the CONTROL coefficients.
@@ -81,8 +101,6 @@ ModifiedCellDMC <- function(beta.m, pheno.v, frac.m,
     return(data.frame(tmp.m))
   })
   
-  print(dim(allCoe.m))
-  
   # Get the DISEASE coefficients (differential methylation) for each cell type.
   # NOTE(milo): Because we're keeping more coefficients in allCoe.m, we need to offset
   # by the number of cell types so that the old epidish stuff still works.
@@ -90,6 +108,7 @@ ModifiedCellDMC <- function(beta.m, pheno.v, frac.m,
 
   coe.ld <- lapply(seq_len(ncol(frac.m)) + offset_to_disease_coe, function(j) {
     idx <- ((j - 1)*4 + 1):((j - 1)*4 + 4)
+    print(idx)
     tmp.m <- allCoe.m[, idx]
     
     # Adjust the p-value of the 4th column.

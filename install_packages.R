@@ -19,3 +19,5 @@ install.packages("addreg")
 
 # install.packages("devtools")
 # devtools::install_github("mdonoghoe/addreg")
+
+install.packages("scales", dependencies=TRUE)
