@@ -55,24 +55,36 @@ def cell_methylation_matrices(coe_control, coe_change, cell_types):
   """
   Build a two matrices with a row for each CpG location, and a column for each cell type. Each entry
   M_ij in the matrices represents an average beta value for CpG location i and cell type j.
+
+  coe_control (pd.DataFrame) : Has a row for each CpG and a columns for the linear regression
+                               results for the Intercept and each cell type.
+  coe_change (pd.DataFrame) : Has a row for each CpG and a columns for the linear regression
+                              results for each cell type.
+  cell_types (list of str) : A list of cell type names that we care about.
   """
   assert(coe_control.shape[0] == coe_change.shape[0])
 
   num_cpg_locations = coe_control.shape[0]
   num_cell_types = len(cell_types)
 
+  # Make the control matrix.
+  c_est_colnames = ["frac.m{}.Estimate".format(cellname) for cellname in cell_types]
+  c_se_colnames = ["frac.m{}.SE".format(cellname) for cellname in cell_types]
+  c_est_colnames.insert(0, "(Intercept).Estimate")
+  c_se_colnames.insert(0, "(Intercept).SE")
+
+  M_control = coe_control[c_est_colnames]
+  M_control_var = coe_control[c_se_colnames] ** 2
+
+  # NOTE(milo): We include an (Intercept) column, so there is a +1.
+  assert(M_control.shape == (num_cpg_locations, 1 + num_cell_types))
+  assert(M_control_var.shape == (num_cpg_locations, 1 + num_cell_types))
+
+  # Make the disease matrix (change).
   estimate_colnames = ["{}.Estimate".format(cellname) for cellname in cell_types]
   se_colnames = ["{}.SE".format(cellname) for cellname in cell_types]
-
-  # Make the control matrix.
-  M_control = coe_control[estimate_colnames]
-  M_control_var = coe_control[se_colnames] ** 2
-  assert(M_control.shape == (num_cpg_locations, num_cell_types))
-  assert(M_control_var.shape == (num_cpg_locations, num_cell_types))
-
-  # Make the disease matrix (control + change).
-  M_disease = M_control + coe_change[estimate_colnames]
-  M_disease_var = M_control_var + coe_change[se_colnames] ** 2
+  M_disease = coe_change[estimate_colnames]
+  M_disease_var = coe_change[se_colnames] ** 2
   assert(M_disease.shape == (num_cpg_locations, num_cell_types))
   assert(M_disease_var.shape == (num_cpg_locations, num_cell_types))
 
