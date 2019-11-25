@@ -81,10 +81,13 @@ martino2015.celldmc.o <- CellDMC(beta.m.martino2015, pheno.martino2015, cellfrac
                                  mc.cores=6)
 # martino2015.celldmc.o <- ModifiedCellDMC(beta.m.martino2015, pheno.martino2015, cellfrac.m.martino2015,
                                          # mc.cores=6)
-save(martino2015.celldmc.o, file="./analysis/martino2015_celldmc.o")
+# save(martino2015.celldmc.o, file="./analysis/martino2015_celldmc.o")
 
-# load("./analysis/martino2015_celldmc.o")
+load("./analysis/martino2015_celldmc.o")
 summarizeDMCTs(martino2015.celldmc.o)
+
+m2015.dmct = martino2015.celldmc.o$dmct
+m2015.signif = m2015.dmct[m2015.dmct[,1] == 1,]
 
 # Write things to .csv so we can escape R.
 write.csv(martino2015.celldmc.o$dmct, file="./analysis/martino2015_dmct.csv")
@@ -94,4 +97,6 @@ write.csv(cellfrac.m.martino2015, file="./analysis/martino2015_cellfrac.csv")
 
 martino2015.phenotypes = gset.martino2015@phenoData@data
 write.csv(martino2015.phenotypes, file="./analysis/martino2015_phenotypes.csv")
+
+write.csv(beta.m.martino2015, file="./analysis/martino2015_beta.csv")
 #==================================================
