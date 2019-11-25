@@ -1,13 +1,28 @@
 # Create binary phenotype labels for each patient.
 # 0 = CONTROL = NONALLERGIC
 # 1 = DISEASE = ALLERGIC
-makeBinaryPhenotypesMartino2015 = function(gset) {
+makeBinaryPhenotypesNonallergicVsAllergicMartino2015 = function(gset) {
   phenotypes = gset@phenoData@data
   pheno.v = phenotypes$`challenge outcome:ch1`
   pheno.v.binary = pheno.v
   pheno.v.binary = pheno.v.binary[pheno.v.binary != "sensitized"] # Remove "sensitized" cases.
   pheno.v.binary[pheno.v.binary == "allergic"] = 1
   pheno.v.binary[pheno.v.binary == "nonallergic"] = 0
+  pheno.v.binary = as.integer(pheno.v.binary)
+  
+  return(pheno.v.binary)
+}
+
+# Alternative phenotype matrix where:
+# CONTROL = 0 = Sensitized
+# DISEASE = 1 = Allergic
+makeBinaryPhenotypesSensitizedVsAllergicMartino2015 = function(gset) {
+  phenotypes = gset@phenoData@data
+  pheno.v = phenotypes$`challenge outcome:ch1`
+  pheno.v.binary = pheno.v
+  pheno.v.binary = pheno.v.binary[pheno.v.binary != "nonallergic"] # Remove "nonallergic" cases.
+  pheno.v.binary[pheno.v.binary == "allergic"] = 1
+  pheno.v.binary[pheno.v.binary == "sensitized"] = 0
   pheno.v.binary = as.integer(pheno.v.binary)
   
   return(pheno.v.binary)
@@ -31,12 +46,29 @@ makeBinaryPhenotypesMartino2018 = function(gset) {
 }
 
 
-getBetaMatrixMartino2015 = function(gset) {
+getBetaMatrixNonallergicVsAllergicMartino2015 = function(gset) {
   phenotypes = gset@phenoData@data
   pheno.v = phenotypes$`challenge outcome:ch1`
   beta.m = gset@assayData$exprs
   beta.m = beta.m[,pheno.v != "sensitized"]
 
+  return(beta.m)
+}
+
+getBetaMatrixSensitizedVsAllergicMartino2015 = function(gset) {
+  phenotypes = gset@phenoData@data
+  pheno.v = phenotypes$`challenge outcome:ch1`
+  beta.m = gset@assayData$exprs
+  beta.m = beta.m[,pheno.v != "nonallergic"]
+  
+  return(beta.m)
+}
+
+# Alternative beta matrix where:
+# CONTROL = 0 = Nonallergic OR Sensitized
+# DISEASE = 1 = Allergic
+getBetaMatrixAlternateMartino2015 = function(gset) {
+  beta.m = gset@assayData$exprs
   return(beta.m)
 }
 
