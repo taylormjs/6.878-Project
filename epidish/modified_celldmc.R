@@ -47,47 +47,63 @@ ModifiedCellDMC <- function(beta.m, pheno.v, frac.m,
   print(sprintf("==> Fitting these %d covariates:", length(colnames(design))))
   print(colnames(design))
   
-  # We want to grab the frac.m.CELLTYPE columns as well as the CELLTYPEPheno columns.
-  AllNames.v = colnames(design)
-  # AllNames.v = c(str_c("frac.m", colnames(frac.m)), IntNames.v)
-  
-  print("====================================")
-  print("Original covariates (IntNames.v):")
-  print(IntNames.v)
-  
-  print("====================================")
-  print("Our covariates (AllNames.v):")
-  print(AllNames.v)
-  
-  print("====================================")
-  
-  print("==> Size of beta.m input:")
-  print(dim(beta.m))
-  
-  # print(head(data.frame(design)))
-  
-  ### fit linear model for each CpG
+  # We want to grab the INTERCEPT column, the frac.m.CELLTYPE columns
+  # and the CELLTYPEPheno columns.
+  AllNames.v = c("(Intercept)", colnames(design))
+
+  # print("====================================")
+  # print("Original covariates (IntNames.v):")
+  # print(IntNames.v)
+  # 
+  # print("====================================")
+  # print("Our covariates (AllNames.v):")
+  # print(AllNames.v)
+  # 
+  # print("====================================")
+  # 
+  # print("==> Size of beta.m input:")
+  # print(dim(beta.m))
+
+  # NOTE(milo): We do a linear regression for each CpG and then row-bind (rbind) it to the others.
   allCoe.m <- do.call(rbind, mclapply(seq_len(nrow(beta.m)), function(i) {
     beta.v <- beta.m[i, ]
-    ### model
     Int.o <- lm(beta.v ~ ., data = data.frame(design))
     
+    # 4 columns: Estimate Std. Error    t value  Pr(>|t|)
+    coef.matrix = matrix(nrow=length(AllNames.v), ncol=4)
+    
+    # This will mask out any colinear variables.
+    valid_coeffs = summary(Int.o)$coefficients
+    
+    # Set the row and column names of our coeff matrix.
+    colnames(coef.matrix) = colnames(valid_coeffs)
+    rownames(coef.matrix) = AllNames.v
+    
+    # Fill in the non-NA valid coefficients.
+    coef.matrix[rownames(valid_coeffs),] = valid_coeffs
+    
+    # Fill in the NA coeffs with zeros.
+    coef.matrix[is.na(coef.matrix)] = 0
+    
     ### get coe
-    # IntCoe.m <- summary(Int.o)$coe[IntNames.v, ]
-    IntCoe.m <- summary(Int.o)$coe[AllNames.v, ]
-    
-    IntCoe.v <- unlist(apply(IntCoe.m, 1, function(x) list(x)))
-    
+    IntCoe.v <- unlist(apply(coef.matrix, 1, function(x) list(x)))
     names(IntCoe.v) <- NULL
+    
     return(IntCoe.v)
   }, mc.preschedule = TRUE, mc.cores = mc.cores, mc.allow.recursive = TRUE))
-  
+
+  # Dimension of allCoe.m: (num_cpg x (1 + 2*num_cell_types)*4)
+  # So for 7 cell types this would be 60 columns.
   print("==> Dimensions of allCoe.m:")
   print(dim(allCoe.m))
   
   # Get CONTROL coefficients for each cell type.
-  # The first 4*num_cell_types things are the CONTROL coefficients.
-  coe.control = lapply(seq_len(ncol(frac.m)), function(j) {
+  # The first 4*(1+num_cell_types) things are the CONTROL coefficients.
+  print("==> GETTING CONTROL COEFFICIENTS ...")
+  num_cell_types = ncol(frac.m)
+  num_control_coef = 1 + num_cell_types # Intercept + cell types.
+
+  coe.control = lapply(seq_len(num_control_coef), function(j) {
     idx <- ((j - 1)*4 + 1):((j - 1)*4 + 4)
     tmp.m <- allCoe.m[, idx]
     tmp.m <- cbind(tmp.m, p.adjust(tmp.m[, 4], method = adjPMethod))
@@ -101,14 +117,28 @@ ModifiedCellDMC <- function(beta.m, pheno.v, frac.m,
     return(data.frame(tmp.m))
   })
   
+  # The control coefficients are put into a list of dataframes.
+  # We want to concatenate all of them into a single matrix.
+  coe.control.m = matrix(nrow=nrow(beta.m), ncol=0)
+  for (i in 1:length(coe.control)) {
+    var_name = AllNames.v[i]
+    var_coe = coe.control[[i]]
+    colnames(var_coe) = str_c(var_name, ".", colnames(var_coe))
+    coe.control.m = cbind(coe.control.m, var_coe)
+  }
+  print("Concatenated coe.control ==> coe.control.m")
+  print(dim(coe.control.m))
+  print(colnames(coe.control.m))
+  print("==> DONE")
+  
   # Get the DISEASE coefficients (differential methylation) for each cell type.
   # NOTE(milo): Because we're keeping more coefficients in allCoe.m, we need to offset
-  # by the number of cell types so that the old epidish stuff still works.
-  offset_to_disease_coe = ncol(frac.m)
+  # by the number of cell types + 1 so that the old epidish stuff still works.
+  print("==> GETTING DISEASE COEFFICIENTS ...")
+  offset_to_disease_coe = num_control_coef
 
   coe.ld <- lapply(seq_len(ncol(frac.m)) + offset_to_disease_coe, function(j) {
     idx <- ((j - 1)*4 + 1):((j - 1)*4 + 4)
-    print(idx)
     tmp.m <- allCoe.m[, idx]
     
     # Adjust the p-value of the 4th column.
@@ -123,8 +153,10 @@ ModifiedCellDMC <- function(beta.m, pheno.v, frac.m,
     return(data.frame(tmp.m))
   })
   names(coe.ld) <- colnames(frac.m)
+  print("==> DONE")
   
   ### get dmct matrix
+  print("==> MAKING DMCT MATRIX ...")
   dmct.m <- matrix(rep(0, ncol(frac.m)*nrow(beta.m)), ncol = ncol(frac.m))
   dmct.idx <- which(sapply(coe.ld, "[[", "adjP") < adjPThresh)
   dmct.m[dmct.idx] <- sign(sapply(coe.ld, "[[", "Estimate")[dmct.idx])
@@ -134,6 +166,7 @@ ModifiedCellDMC <- function(beta.m, pheno.v, frac.m,
   rownames(dmct.m) <- rownames(beta.m)
   
   if(sort) coe.ld <- lapply(coe.ld, function(x) x[order(x$p),] )
+  print("==> DONE")
   
-  return(list(dmct = dmct.m, coe.change = coe.ld, coe.control = coe.control))
+  return(list(dmct = dmct.m, coe.change = coe.ld, coe.control = coe.control.m))
 }
