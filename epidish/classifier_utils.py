@@ -4,7 +4,7 @@ import pandas as pd
 from scipy.stats import multivariate_normal
 
 
-def load_epidish_results(folder):
+def load_epidish_results(folder, mvalues=False):
   """
   Load R results from the analysis folder.
   """
@@ -13,9 +13,13 @@ def load_epidish_results(folder):
   coe_change = pd.read_csv(os.path.join(folder, "coe_change.csv"), index_col=0)
   cell_frac = pd.read_csv(os.path.join(folder, "cellfrac.csv"), index_col=0)
   pheno = pd.read_csv(os.path.join(folder, "phenotypes.csv"), index_col=0)
-  beta = pd.read_csv(os.path.join(folder, "beta.csv"), index_col=0)
 
-  return coe_control, coe_change, cell_frac, pheno, beta
+  if not mvalues:
+    beta = pd.read_csv(os.path.join(folder, "beta.csv"), index_col=0)
+    return coe_control, coe_change, cell_frac, pheno, beta
+  else:
+    M = pd.read_csv(os.path.join(folder, "Mvalues.csv"), index_col=0)
+    return coe_control, coe_change, cell_frac, pheno, M
 
 
 def compute_precision_recall(labels):

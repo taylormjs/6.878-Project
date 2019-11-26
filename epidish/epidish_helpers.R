@@ -34,7 +34,6 @@ makeBinaryPhenotypesSensitizedVsAllergicMartino2015 = function(gset) {
 # 1 = DISEASE = ALLERGIC
 makeBinaryPhenotypesMartino2018 = function(gset) {
   phenotypes = gset@phenoData@data
-  phenotypes = gset.martino2018@phenoData@data
   pheno.v = phenotypes$`allergy status:ch1`
   pheno.v.binary = pheno.v
   pheno.v.binary = pheno.v.binary[pheno.v.binary != "resolved"] # Remove "resolved" cases.
@@ -75,12 +74,20 @@ getBetaMatrixAlternateMartino2015 = function(gset) {
 
 getBetaMatrixMartino2018 = function(gset) {
   phenotypes = gset@phenoData@data
-  phenotypes = gset.martino2018@phenoData@data
   pheno.v = phenotypes$`allergy status:ch1`
   beta.m = gset@assayData$exprs
   beta.m = beta.m[,pheno.v != "resolved"]
 
   return(beta.m)
+}
+
+
+getMvalues2018 = function(Mvalues, gset) {
+  phenotypes = gset@phenoData@data
+  pheno.v = phenotypes$`allergy status:ch1`
+  print(pheno.v != "resolved")
+  Mvalues.filtered = Mvalues[,pheno.v != "resolved"]
+  return(Mvalues.filtered)
 }
 
 

@@ -9,12 +9,12 @@ convertBetaToMValue = function(beta) {
 
 # Process Martino 2018.
 load("./analysis/gset.martino2018.Rda")
-beta.2018 = getBetaMatrixMartino2018(gset.martino2018)
+beta.2018 = gset.martino2018@assayData$exprs
 Mvalues2018 = log2(beta.2018 / (1 - beta.2018))
 save(Mvalues2018, file="./analysis/Mvalues2018.Rda")
 
 # Process Martino 2015.
 load("./analysis/gset.martino2015.Rda")
-beta.2015 = getBetaMatrixNonallergicVsAllergicMartino2015(gset.martino2015)
+beta.2015 = gset.martino2015@assayData$exprs
 Mvalues2015 = log2(beta.2015 / (1 - beta.2015))
 save(Mvalues2015, file="./analysis/Mvalues2015.Rda")

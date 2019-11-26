@@ -22,6 +22,9 @@ ModifiedCellDMC <- function(beta.m, pheno.v, frac.m,
   
   ### check whether input is beta value matrix
   is.beta <- ((min(beta.m) >= 0) & (max(beta.m) <= 1))
+  if (is.beta) {
+    message("Detected a BETA matrix input")
+  }
   
   ### guess factor input
   if (nlevels(factor(pheno.v)) == 2) {
@@ -50,19 +53,6 @@ ModifiedCellDMC <- function(beta.m, pheno.v, frac.m,
   # We want to grab the INTERCEPT column, the frac.m.CELLTYPE columns
   # and the CELLTYPEPheno columns.
   AllNames.v = c("(Intercept)", colnames(design))
-
-  # print("====================================")
-  # print("Original covariates (IntNames.v):")
-  # print(IntNames.v)
-  # 
-  # print("====================================")
-  # print("Our covariates (AllNames.v):")
-  # print(AllNames.v)
-  # 
-  # print("====================================")
-  # 
-  # print("==> Size of beta.m input:")
-  # print(dim(beta.m))
 
   # NOTE(milo): We do a linear regression for each CpG and then row-bind (rbind) it to the others.
   allCoe.m <- do.call(rbind, mclapply(seq_len(nrow(beta.m)), function(i) {

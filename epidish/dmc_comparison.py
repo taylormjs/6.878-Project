@@ -48,10 +48,11 @@ def compare_dmcs(dataset_dmc_sets):
   print(summary)
 
 
-def save_signif_cpg_files(folders, cell_types_for_each):
+def save_signif_cpg_files(folders, cell_types_for_each, mvalues):
   for i, analysis_folder in enumerate(folders):
     cell_types = cell_types_for_each[i]
-    coe_control, coe_change, cell_fracs, phenotypes, beta = load_epidish_results(analysis_folder)
+    coe_control, coe_change, cell_fracs, phenotypes, beta = \
+        load_epidish_results(analysis_folder, mvalues=mvalues[i])
     signif_cpg = report_significant_cpgs(cell_types, coe_change, p_value_thresh=0.1)
     print("==> All significant CpG locations:")
     print(signif_cpg)
@@ -74,23 +75,32 @@ def load_signif_cpg_files(folders, dataset_names):
 
 if __name__ == "__main__":
   folders = [
-    "../analysis/martino2015/nonallergic_vs_allergic_only_pbmc/",
-    "../analysis/martino2015/nonallergic_vs_allergic_with_eosino/",
-    "../analysis/martino2015/nonallergic_vs_allergic_with_neutro/",
-    "../analysis/martino2018/control_vs_allergic/"
+    # "../analysis/martino2015/nonallergic_vs_allergic_only_pbmc/",
+    # "../analysis/martino2015/nonallergic_vs_allergic_with_eosino/",
+    # "../analysis/martino2015/nonallergic_vs_allergic_with_neutro/",
+    "../analysis/martino2018/control_vs_allergic/",
+    "../analysis/martino2018/Mvalues_control_vs_allergic/"
   ]
   names = [
-    "2015_only_pbmc",
-    "2015_with_eosino",
-    "2015_with_neutro",
-    "2018"
+    # "2015_only_pbmc",
+    # "2015_with_eosino",
+    # "2015_with_neutro",
+    "2018",
+    "2018_Mvalues"
   ]
   cell_types_for_each = [
-    ["B", "NK", "CD4T", "CD8T", "Mono"],
-    ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"],
-    ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro"]
+    # ["B", "NK", "CD4T", "CD8T", "Mono"],
+    # ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"],
+    # ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro"],
+    ["CD4", "CD8"],
+    ["CD4", "CD8"]
   ]
 
-  # save_signif_cpg_files(folders, cell_types_for_each)
+  mvalues = [
+  ]
+
+  # save_signif_cpg_files(folders, cell_types_for_each, mvalues=[True])
+  # save_signif_cpg_files(["../analysis/martino2018/Mvalues_control_vs_allergic"], [["CD4T", "CD8T"]], [True])
+
   dataset_dmc_sets = load_signif_cpg_files(folders, names)
   compare_dmcs(dataset_dmc_sets)
