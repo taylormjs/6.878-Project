@@ -9,19 +9,6 @@ from classifier_utils import *
 MARTINO2015_LABEL_MAP = {"nonallergic": 0, "allergic": 1,"sensitized": 2}
 MARTINO2018_LABEL_MAP = {"control": 0, "allergic": 1,"resolved": 2}
 
-def load_epidish_results(folder):
-  """
-  Load R results from the analysis folder.
-  """
-  # NOTE(milo): index_col = 0 sets the first column as the row names.
-  coe_control = pd.read_csv(os.path.join(folder, "coe_control.csv"), index_col=0)
-  coe_change = pd.read_csv(os.path.join(folder, "coe_change.csv"), index_col=0)
-  cell_frac = pd.read_csv(os.path.join(folder, "cellfrac.csv"), index_col=0)
-  pheno = pd.read_csv(os.path.join(folder, "phenotypes.csv"), index_col=0)
-  beta = pd.read_csv(os.path.join(folder, "beta.csv"), index_col=0)
-
-  return coe_control, coe_change, cell_frac, pheno, beta
-
 
 def predict_bulk_dnam(M_control, M_control_var, M_disease, M_disease_var, cell_fracs,
                       cpg_subset=None):
@@ -236,29 +223,6 @@ def classify_martino2018():
   print("==> Recall:", recall)
 
 
-def save_signif_cpg_files():
-  folders = [
-    "../analysis/martino2015/nonallergic_vs_allergic_with_eosino/",
-    "../analysis/martino2018/control_vs_allergic/"
-  ]
-  cell_types_for_each = [
-    ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"],
-    ["CD4T", "CD8T"]
-  ]
-  for i, analysis_folder in enumerate(folders):
-    cell_types = cell_types_for_each[i]
-    coe_control, coe_change, cell_fracs, phenotypes, beta = load_epidish_results(analysis_folder)
-    signif_cpg = report_significant_cpgs(cell_types, coe_change, p_value_thresh=0.1)
-    print("==> All significant CpG locations:")
-    print(signif_cpg)
-
-    with open(os.path.join(analysis_folder, "signif_cpg.txt"), "w") as f:
-      for cpg in signif_cpg:
-        f.write(cpg + "\n")
-
-
 if __name__ == "__main__":
   # classify_martino2015()
   # classify_martino2018()
-
-  save_signif_cpg_files()

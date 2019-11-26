@@ -1,6 +1,21 @@
+import os
 import numpy as np
 import pandas as pd
 from scipy.stats import multivariate_normal
+
+
+def load_epidish_results(folder):
+  """
+  Load R results from the analysis folder.
+  """
+  # NOTE(milo): index_col = 0 sets the first column as the row names.
+  coe_control = pd.read_csv(os.path.join(folder, "coe_control.csv"), index_col=0)
+  coe_change = pd.read_csv(os.path.join(folder, "coe_change.csv"), index_col=0)
+  cell_frac = pd.read_csv(os.path.join(folder, "cellfrac.csv"), index_col=0)
+  pheno = pd.read_csv(os.path.join(folder, "phenotypes.csv"), index_col=0)
+  beta = pd.read_csv(os.path.join(folder, "beta.csv"), index_col=0)
+
+  return coe_control, coe_change, cell_frac, pheno, beta
 
 
 def compute_precision_recall(labels):
