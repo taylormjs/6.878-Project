@@ -137,14 +137,20 @@ def classify_using_beta_values(B_control, B_control_var, B_disease, B_disease_va
   return likelihood_ratios
 
 
-def run_classifier(analysis_folder, cell_types):
+def run_classifier(analysis_folder, cell_types, use_mvalues=False, p_value_thresh=0.05):
+  print("=============== RUNNING CLASSIFIER ================")
+  print(">> Parameters:")
+  print("  >> use_mvalues:", use_mvalues)
+  print("  >> p_value_thresh:", p_value_thresh)
+
   # STEP 1: Load in data from R output.
-  coe_control, coe_change, cell_fracs, phenotypes, beta = load_epidish_results(analysis_folder)
+  coe_control, coe_change, cell_fracs, phenotypes, beta = \
+    load_epidish_results(analysis_folder, use_mvalues)
 
   # coe_control = rename_control_cols(coe_control, cell_types_m2015)
 
   # STEP 2: Extract significant CpG locations (adjP < 0.05).
-  signif_cpg = report_significant_cpgs(cell_types, coe_change, p_value_thresh=0.05)
+  signif_cpg = report_significant_cpgs(cell_types, coe_change, p_value_thresh=p_value_thresh)
   print("==> All significant CpG locations:")
   print(signif_cpg)
 
@@ -223,6 +229,27 @@ def classify_martino2018():
   print("==> Recall:", recall)
 
 
+def classify_martino2018_Mvalues():
+  analysis_folder = "../analysis/martino2018/Mvalues_control_vs_allergic/"
+  cell_types_m2018 = ["CD4T", "CD8T"]
+  likely_ratios = run_classifier(analysis_folder, cell_types_m2018, use_mvalues=True, p_value_thresh=0.1)
+  phenotypes = pd.read_csv(os.path.join(analysis_folder, "phenotypes.csv"), index_col=0)
+
+  labels = {}
+  for patient in likely_ratios:
+    predicted_label = 1 if likely_ratios[patient] > 1 else 0
+    pheno_str = str(phenotypes.loc[patient,"allergy status:ch1"])
+    true_label = MARTINO2018_LABEL_MAP[pheno_str]
+    print("Patient {}: predicted={} true={}".format(patient, predicted_label, true_label))
+    labels[patient] = (predicted_label, true_label)
+
+  precision, recall = compute_precision_recall(labels)
+  print("\n====== CLASSIFICATION RESULTS =====")
+  print("==> Precision:", precision)
+  print("==> Recall:", recall)
+
+
 if __name__ == "__main__":
   # classify_martino2015()
   # classify_martino2018()
+  classify_martino2018_Mvalues()

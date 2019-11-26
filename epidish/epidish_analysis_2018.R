@@ -31,9 +31,9 @@ martino2018.celldmc.o <- ModifiedCellDMC(beta.m.martino2018, pheno.martino2018, 
                                          mc.cores=6)
 
 folder = "./analysis/martino2018/control_vs_allergic/"
-save(martino2018.celldmc.o, file=str_c(folder, "celldmc.o"))
+# save(martino2018.celldmc.o, file=str_c(folder, "celldmc.o"))
 
-# load(str_c(folder, "celldmc.o"))
+load(str_c(folder, "celldmc.o"))
 summarizeDMCTs(martino2018.celldmc.o)
 
 # Write things to .csv so we can escape R.
