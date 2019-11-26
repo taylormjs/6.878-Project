@@ -29,12 +29,20 @@ boxplot(cellfrac.m.martino2018)
 #                                  mc.cores=6)
 martino2018.celldmc.o <- ModifiedCellDMC(beta.m.martino2018, pheno.martino2018, cellfrac.m.martino2018,
                                          mc.cores=6)
-save(martino2018.celldmc.o, file="./analysis/martino2018_celldmc.o")
 
-load("./analysis/martino2018_celldmc.o")
+folder = "./analysis/martino2018/control_vs_allergic/"
+save(martino2018.celldmc.o, file=str_c(folder, "celldmc.o"))
+
+# load(str_c(folder, "celldmc.o"))
 summarizeDMCTs(martino2018.celldmc.o)
 
 # Write things to .csv so we can escape R.
-write.csv(martino2018.celldmc.o$dmct, file="./analysis/martino2018_dmct.csv")
-write.csv(martino2018.celldmc.o$coe.change, file="./analysis/martino2018_coe_change.csv")
-write.csv(martino2018.celldmc.o$coe.control, file="./analysis/martino2018_coe_control.csv")
+write.csv(martino2018.celldmc.o$dmct, file=str_c(folder, "dmct.csv"))
+write.csv(martino2018.celldmc.o$coe.change, file=str_c(folder, "coe_change.csv"))
+write.csv(martino2018.celldmc.o$coe.control, file=str_c(folder, "coe_control.csv"))
+write.csv(cellfrac.m.martino2018, file=str_c(folder, "cellfrac.csv"))
+
+martino2018.phenotypes = gset.martino2018@phenoData@data
+write.csv(martino2018.phenotypes, file=str_c(folder, "phenotypes.csv"))
+
+write.csv(beta.m.martino2018, file=str_c(folder, "beta.csv"))

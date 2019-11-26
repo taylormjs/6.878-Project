@@ -5,18 +5,20 @@ from scipy.stats import multivariate_normal
 
 from classifier_utils import *
 
+# NOTE(milo): Make sure to change this once we figure out where sensitized belongs!
+MARTINO2015_LABEL_MAP = {"nonallergic": 0, "allergic": 1,"sensitized": 2}
+MARTINO2018_LABEL_MAP = {"control": 0, "allergic": 1,"resolved": 2}
 
-def load_epidish_results(study="martino2015"):
+def load_epidish_results(folder):
   """
   Load R results from the analysis folder.
   """
-  folder = "../analysis/{}/nonallergic_vs_allergic/".format(study)
   # NOTE(milo): index_col = 0 sets the first column as the row names.
-  coe_control = pd.read_csv(os.path.join(folder, "{}_coe_control.csv".format(study)), index_col=0)
-  coe_change = pd.read_csv(os.path.join(folder, "{}_coe_change.csv".format(study)), index_col=0)
-  cell_frac = pd.read_csv(os.path.join(folder, "{}_cellfrac.csv".format(study)), index_col=0)
-  pheno = pd.read_csv(os.path.join(folder, "{}_phenotypes.csv".format(study)), index_col=0)
-  beta = pd.read_csv(os.path.join(folder, "{}_beta.csv".format(study)), index_col=0)
+  coe_control = pd.read_csv(os.path.join(folder, "coe_control.csv"), index_col=0)
+  coe_change = pd.read_csv(os.path.join(folder, "coe_change.csv"), index_col=0)
+  cell_frac = pd.read_csv(os.path.join(folder, "cellfrac.csv"), index_col=0)
+  pheno = pd.read_csv(os.path.join(folder, "phenotypes.csv"), index_col=0)
+  beta = pd.read_csv(os.path.join(folder, "beta.csv"), index_col=0)
 
   return coe_control, coe_change, cell_frac, pheno, beta
 
@@ -49,7 +51,7 @@ def predict_bulk_dnam(M_control, M_control_var, M_disease, M_disease_var, cell_f
 
   # B_control = intercept + coeff * cell_frac
   B_control = np.dot(M_control_np, intercept_and_cell_fracs_np)
-  B_control_var = np.dot(M_control_var_np, intercept_and_cell_fracs_np)
+  B_control_var = np.dot(M_control_var_np, intercept_and_cell_fracs_np ** 2)
 
   # Multiply (C x k) DNAm delta coeffs by cell fractions (k x N) to get a "bulk" DNA delta vector.
   # The disease bulk vector = B_control + B_disease_delta.
@@ -57,13 +59,16 @@ def predict_bulk_dnam(M_control, M_control_var, M_disease, M_disease_var, cell_f
   M_disease_var_np = M_disease_var.to_numpy()
 
   B_disease_delta = np.dot(M_disease_np, cell_fracs_np)
-  B_disease_delta_var = np.dot(M_disease_var_np, cell_fracs_np)
+  B_disease_delta_var = np.dot(M_disease_var_np, cell_fracs_np ** 2)
 
   B_disease = B_control + B_disease_delta
   B_disease_var = B_control_var + B_disease_delta_var
 
   # Convert the numpy arrays back to pd.Dataframe. The rows are CpG locations and the columns are
   # the names of individuals.
+  B_control = B_control.clip(min=0, max=1)
+  B_disease = B_disease.clip(min=0, max=1)
+
   B_control = pd.DataFrame(B_control, index=M_control.index, columns=cell_fracs.index)
   B_control_var = pd.DataFrame(B_control_var, index=M_control.index, columns=cell_fracs.index)
   B_disease = pd.DataFrame(B_disease, index=M_control.index, columns=cell_fracs.index)
@@ -80,7 +85,31 @@ def predict_bulk_dnam(M_control, M_control_var, M_disease, M_disease_var, cell_f
   return B_control, B_control_var, B_disease, B_disease_var
 
 
-def classify_using_beta_values(B_control, B_control_var, B_disease, B_disease_var, observed_beta_values):
+# def compute_bulk_dnam_variance(B_control, B_disease, observed_beta_values, phenotypes):
+#   signif_cpg = B_control.index
+
+#   control_patients = phenotypes[phenotypes["challenge outcome:ch1"] == "nonallergic"].index
+#   disease_patients = phenotypes[phenotypes["challenge outcome:ch1"] == "allergic"].index
+
+#   print("Fitting variance using {} control and {} disease patients".format(
+#     len(control_patients), len(disease_patients)))
+
+#   sq_control_resid = (B_control.loc[:,control_patients].to_numpy() - \
+#                       observed_beta_values.loc[signif_cpg,control_patients].to_numpy()) ** 2
+#   control_var = np.sum(sq_control_resid, axis=1) / (control_patients.shape[0] - 1)
+
+#   sq_disease_red = (B_disease.loc[:,disease_patients].to_numpy() - \
+#                     observed_beta_values.loc[signif_cpg,disease_patients].to_numpy()) ** 2
+#   disease_var = np.sum(sq_control_resid, axis=1) / (disease_patients.shape[0] - 1)
+
+#   control_var = pd.DataFrame(control_var, index=B_control.index, columns=["control_variance"])
+#   disease_var = pd.DataFrame(disease_var, index=B_disease.index, columns=["disease_variance"])
+
+#   return control_var, disease_var
+
+
+def classify_using_beta_values(B_control, B_control_var, B_disease, B_disease_var,
+                               observed_beta_values):
   """
   Classify a person as control or disease using their observed bulk beta values.
 
@@ -100,69 +129,136 @@ def classify_using_beta_values(B_control, B_control_var, B_disease, B_disease_va
   for i, patient in enumerate(patient_names):
     pred_control_beta = B_control.loc[:,patient]
     pred_control_var = B_control_var.loc[:,patient]
+    # pred_control_var = np.squeeze(B_control_var)
 
     pred_disease_beta = B_disease.loc[:,patient]
     pred_disease_var = B_disease_var.loc[:,patient]
+    # pred_disease_var = np.squeeze(B_disease_var)
 
     control_likelihood = multivariate_normal.pdf(
       observed_beta_values.loc[signif_cpg_names,patient],
       mean=pred_control_beta,
-      cov=np.sqrt(pred_control_var))
+      cov=np.diag(np.sqrt(pred_control_var)))
 
     disease_likelihood = multivariate_normal.pdf(
       observed_beta_values.loc[signif_cpg_names,patient],
       mean=pred_disease_beta,
-      cov=np.sqrt(pred_disease_var))
+      cov=np.diag(np.sqrt(pred_disease_var)))
 
     likelihood_ratios[patient] = disease_likelihood / control_likelihood
 
   return likelihood_ratios
 
 
-def run_martino2015():
-  """
-  Extract significant CpG locations and classify patients from Martino 2015 using them.
-  """
+def run_classifier(analysis_folder, cell_types):
   # STEP 1: Load in data from R output.
-  coe_control, coe_change, cell_fracs, phenotypes, beta = load_epidish_results("martino2015")
+  coe_control, coe_change, cell_fracs, phenotypes, beta = load_epidish_results(analysis_folder)
 
-  # NOTE(milo): Had to throw away Neutro in R because it was causing errors.
-  cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"]
   # coe_control = rename_control_cols(coe_control, cell_types_m2015)
 
   # STEP 2: Extract significant CpG locations (adjP < 0.05).
-  signif_cpg = report_significant_cpgs(cell_types_m2015, coe_change)
+  signif_cpg = report_significant_cpgs(cell_types, coe_change, p_value_thresh=0.05)
   print("==> All significant CpG locations:")
   print(signif_cpg)
 
   # STEP 3: Make matrices with cell-specific methylation beta values.
-  Mc, Mc_var, Md, Md_var = cell_methylation_matrices(coe_control, coe_change, cell_types_m2015)
+  Mc, Mc_var, Md, Md_var = cell_methylation_matrices(coe_control, coe_change, cell_types)
 
   # STEP 4: Multiply methylation matrices by cell fractions to predict the class conditional bulk
   # beta values for each patient.
   B_control, B_control_var, B_disease, B_disease_var = \
       predict_bulk_dnam(Mc, Mc_var, Md, Md_var, cell_fracs, cpg_subset=signif_cpg)
 
-  # # STEP 5: Classify each person based on how well their measured bulk beta values matches either
-  # # the control or disease class-conditioned ones.
-  # likely_ratios = classify_using_beta_values(B_control, B_control_var, B_disease, B_disease_var, beta)
+  # print(B_control)
+  # print(B_disease)
+  # print(B_control_var)
+  # print(B_disease_var)
 
-  # # NOTE(milo): Make sure to change this once we figure out where sensitized belongs!
-  # MARTINO2015_LABEL_MAP = {"nonallergic": 0, "allergic": 1,"sensitized": 2}
+  # B_control_var, B_disease_var = compute_bulk_dnam_variance(B_control, B_disease, beta, phenotypes)
 
-  # labels = {}
-  # for patient in likely_ratios:
-  #   predicted_label = 1 if likely_ratios[patient] > 1 else 0
-  #   pheno_str = str(phenotypes.loc[patient,"challenge outcome:ch1"])
-  #   true_label = MARTINO2015_LABEL_MAP[pheno_str]
-  #   print("Patient {}: predicted={} true={}".format(patient, predicted_label, true_label))
-  #   labels[patient] = (predicted_label, true_label)
+  print(B_control_var.shape)
+  print(B_disease_var.shape)
 
-  # precision, recall = compute_precision_recall(labels)
-  # print("\n====== CLASSIFICATION RESULTS =====")
-  # print("==> Precision:", precision)
-  # print("==> Recall:", recall)
+  # STEP 5: Classify each person based on how well their measured bulk beta values matches either
+  # the control or disease class-conditioned ones.
+  likely_ratios = classify_using_beta_values(B_control, B_control_var, B_disease, B_disease_var, beta)
+
+  return likely_ratios
+
+
+def classify_martino2015():
+  """
+  Extract significant CpG locations and classify patients from Martino 2015 using them.
+  """
+  analysis_folder = "../analysis/martino2015/nonallergic_vs_allergic_with_eosino/" 
+  # NOTE(milo): Only use PBMC cell types here.
+  # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono"]
+  # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro"]
+  cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"]
+  likely_ratios = run_classifier(analysis_folder, cell_types_m2015)
+
+  print(likely_ratios)
+
+  labels = {}
+  for patient in likely_ratios:
+    predicted_label = 1 if likely_ratios[patient] > 1 else 0
+    pheno_str = str(phenotypes.loc[patient,"challenge outcome:ch1"])
+    true_label = MARTINO2015_LABEL_MAP[pheno_str]
+    print("Patient {}: predicted={} true={}".format(patient, predicted_label, true_label))
+    labels[patient] = (predicted_label, true_label)
+
+  precision, recall = compute_precision_recall(labels)
+  print("\n====== CLASSIFICATION RESULTS =====")
+  print("==> Precision:", precision)
+  print("==> Recall:", recall)
+
+
+def classify_martino2018():
+  """
+  Extract significant CpG locations and classify patients from Martino 2015 using them.
+  """
+  analysis_folder = "../analysis/martino2018/control_vs_allergic/"
+  cell_types_m2018 = ["CD4T", "CD8T"]
+  likely_ratios = run_classifier(analysis_folder, cell_types_m2018)
+  phenotypes = pd.read_csv(os.path.join(analysis_folder, "phenotypes.csv"), index_col=0)
+
+  labels = {}
+  for patient in likely_ratios:
+    predicted_label = 1 if likely_ratios[patient] > 1 else 0
+    pheno_str = str(phenotypes.loc[patient,"allergy status:ch1"])
+    true_label = MARTINO2018_LABEL_MAP[pheno_str]
+    print("Patient {}: predicted={} true={}".format(patient, predicted_label, true_label))
+    labels[patient] = (predicted_label, true_label)
+
+  precision, recall = compute_precision_recall(labels)
+  print("\n====== CLASSIFICATION RESULTS =====")
+  print("==> Precision:", precision)
+  print("==> Recall:", recall)
+
+
+def save_signif_cpg_files():
+  folders = [
+    "../analysis/martino2015/nonallergic_vs_allergic_with_eosino/",
+    "../analysis/martino2018/control_vs_allergic/"
+  ]
+  cell_types_for_each = [
+    ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"],
+    ["CD4T", "CD8T"]
+  ]
+  for i, analysis_folder in enumerate(folders):
+    cell_types = cell_types_for_each[i]
+    coe_control, coe_change, cell_fracs, phenotypes, beta = load_epidish_results(analysis_folder)
+    signif_cpg = report_significant_cpgs(cell_types, coe_change, p_value_thresh=0.1)
+    print("==> All significant CpG locations:")
+    print(signif_cpg)
+
+    with open(os.path.join(analysis_folder, "signif_cpg.txt"), "w") as f:
+      for cpg in signif_cpg:
+        f.write(cpg + "\n")
 
 
 if __name__ == "__main__":
-  run_martino2015()
+  # classify_martino2015()
+  # classify_martino2018()
+
+  save_signif_cpg_files()
