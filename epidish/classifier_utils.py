@@ -5,14 +5,19 @@ import pandas as pd
 from scipy.stats import multivariate_normal
 
 
-def load_epidish_results(folder, mvalues=False):
+def load_epidish_results(folder, mvalues=True, has_cellfrac=True):
   """
   Load R results from the analysis folder.
   """
   # NOTE(milo): index_col = 0 sets the first column as the row names.
   coe_control = pd.read_csv(os.path.join(folder, "coe_control.csv"), index_col=0)
   coe_change = pd.read_csv(os.path.join(folder, "coe_change.csv"), index_col=0)
-  cell_frac = pd.read_csv(os.path.join(folder, "cellfrac.csv"), index_col=0)
+
+  if has_cellfrac:
+    cell_frac = pd.read_csv(os.path.join(folder, "cellfrac.csv"), index_col=0)
+  else:
+    cell_frac = None
+  
   pheno = pd.read_csv(os.path.join(folder, "phenotypes.csv"), index_col=0)
 
   if not mvalues:
@@ -71,6 +76,25 @@ def report_significant_cpgs(cell_types, coe_change, p_value_thresh=0.05):
   return sorted(list(signif_set))
 
 
+def report_significant_cpgs_bulk(coe_change, p_value_thresh=0.05):
+  """
+  Print out the number of significant CpG locations found from bulk data.
+
+  Returns: A list of CpG locations, sorted by their cg code.
+  """
+  signif_set = set()
+
+  adjP_colname = "adjP"
+  p_values = coe_change[coe_change[adjP_colname] <= p_value_thresh]
+  num_signif = p_values.shape[0]
+  print("Found {} significant CpGs".format(num_signif))
+
+  for cpg_name in p_values.index:
+    signif_set.add(cpg_name)
+  
+  return sorted(list(signif_set))
+
+
 def report_cell_specific_DMCs(cell_types, coe_change, p_value_thresh=0.05):
   cpgs = defaultdict(lambda: [])
 
@@ -79,8 +103,6 @@ def report_cell_specific_DMCs(cell_types, coe_change, p_value_thresh=0.05):
   for cell_type in cell_types:
     adjP_colname = "{}.adjP".format(cell_type)
     p_values = coe_change[coe_change[adjP_colname] <= p_value_thresh]
-    
-    print(p_values)
 
     num_signif = p_values.shape[0]
     print("Found {} significant CpGs for {}".format(num_signif, cell_type))
@@ -94,7 +116,7 @@ def report_cell_specific_DMCs(cell_types, coe_change, p_value_thresh=0.05):
 
 def cell_methylation_matrices(coe_control, coe_change, cell_types):
   """
-  Build a two matrices with a row for each CpG location, and a column for each cell type. Each entry
+  Build two matrices with a row for each CpG location, and a column for each cell type. Each entry
   M_ij in the matrices represents an average beta value for CpG location i and cell type j.
 
   coe_control (pd.DataFrame) : Has a row for each CpG and a columns for the linear regression
@@ -130,6 +152,25 @@ def cell_methylation_matrices(coe_control, coe_change, cell_types):
   assert(M_disease_var.shape == (num_cpg_locations, num_cell_types))
 
   return M_control, M_control_var, M_disease, M_disease_var
+
+
+def bulk_control_and_disease_mean(coe_control, coe_change):
+  """
+  Use bulk DMC linear regression results to compute the mean M-values we would expect for a control
+  and disease person.
+
+  coe_control (pd.DataFrame) : Has a row for each CpG and a columns for the linear regression
+                               results for the Intercept and each cell type.
+  coe_change (pd.DataFrame) : Has a row for each CpG and a columns for the linear regression
+                              results for each cell type.
+  """
+  B_control = coe_control["(Intercept).Estimate"]
+  B_control_var = coe_control["(Intercept).SE"] ** 2
+
+  B_disease = B_control + coe_change["Estimate"]
+  B_disease_var = B_control_var + coe_change["SE"] ** 2
+
+  return B_control, B_control_var, B_disease, B_disease_var
 
 
 def rename_control_cols(coe_control, cell_types):
