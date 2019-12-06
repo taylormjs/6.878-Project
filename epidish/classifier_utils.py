@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 import numpy as np
 import pandas as pd
 from scipy.stats import multivariate_normal
@@ -62,12 +63,33 @@ def report_significant_cpgs(cell_types, coe_change, p_value_thresh=0.05):
     adjP_colname = "{}.adjP".format(cell_type)
     p_values = coe_change[coe_change[adjP_colname] <= p_value_thresh]
     num_signif = p_values.shape[0]
-    print("Found {} significant CpGs for {}".format(cell_type, num_signif))
+    print("Found {} significant CpGs for {}".format(num_signif, cell_type))
 
     for cpg_name in p_values.index:
       signif_set.add(cpg_name)
   
   return sorted(list(signif_set))
+
+
+def report_cell_specific_DMCs(cell_types, coe_change, p_value_thresh=0.05):
+  cpgs = defaultdict(lambda: [])
+
+  dmcs = pd.DataFrame(columns=cell_types)
+
+  for cell_type in cell_types:
+    adjP_colname = "{}.adjP".format(cell_type)
+    p_values = coe_change[coe_change[adjP_colname] <= p_value_thresh]
+    
+    print(p_values)
+
+    num_signif = p_values.shape[0]
+    print("Found {} significant CpGs for {}".format(num_signif, cell_type))
+
+    for cpg_name in p_values.index:
+      coeff = coe_change[coe]
+      cpgs[cpg_name].append(cell_type)
+
+  return cpgs
 
 
 def cell_methylation_matrices(coe_control, coe_change, cell_types):

@@ -85,8 +85,15 @@ getBetaMatrixMartino2018 = function(gset) {
 getMvalues2018 = function(Mvalues, gset) {
   phenotypes = gset@phenoData@data
   pheno.v = phenotypes$`allergy status:ch1`
-  print(pheno.v != "resolved")
   Mvalues.filtered = Mvalues[,pheno.v != "resolved"]
+  return(Mvalues.filtered)
+}
+
+
+getMvalues2015NonallergicVsAllergic = function(Mvalues, gset) {
+  phenotypes = gset@phenoData@data
+  pheno.v = phenotypes$`challenge outcome:ch1`
+  Mvalues.filtered = Mvalues[,pheno.v != "sensitized"]
   return(Mvalues.filtered)
 }
 
@@ -99,6 +106,7 @@ getEpidishCellFrac = function(beta.m) {
 
   return(cellfrac.m)
 }
+
 
 # See: https://bioconductor.org/packages/release/bioc/manuals/EpiDISH/man/EpiDISH.pdf
 # DMC = Differentially Methylated Cytosines

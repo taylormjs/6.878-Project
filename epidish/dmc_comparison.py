@@ -78,29 +78,36 @@ if __name__ == "__main__":
     # "../analysis/martino2015/nonallergic_vs_allergic_only_pbmc/",
     # "../analysis/martino2015/nonallergic_vs_allergic_with_eosino/",
     # "../analysis/martino2015/nonallergic_vs_allergic_with_neutro/",
-    "../analysis/martino2018/control_vs_allergic/",
+    # "../analysis/martino2018/control_vs_allergic/",
+    # "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/",
+    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/",
     "../analysis/martino2018/Mvalues_control_vs_allergic/"
   ]
   names = [
     # "2015_only_pbmc",
     # "2015_with_eosino",
     # "2015_with_neutro",
-    "2018",
+    # "2015_Mvalues",
+    "2015_Mvalues",
     "2018_Mvalues"
   ]
   cell_types_for_each = [
     # ["B", "NK", "CD4T", "CD8T", "Mono"],
     # ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"],
     # ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro"],
-    ["CD4", "CD8"],
-    ["CD4", "CD8"]
+    # ["CD4", "CD8"],
+    # ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"],
+    ["B", "NK", "CD4T", "CD8T", "Mono"],
+    ["CD4T", "CD8T"]
   ]
 
   mvalues = [
+    True,
+    # True
   ]
 
-  # save_signif_cpg_files(folders, cell_types_for_each, mvalues=[True])
+  # save_signif_cpg_files(folders, cell_types_for_each, mvalues=mvalues)
   # save_signif_cpg_files(["../analysis/martino2018/Mvalues_control_vs_allergic"], [["CD4T", "CD8T"]], [True])
 
   dataset_dmc_sets = load_signif_cpg_files(folders, names)
-  compare_dmcs(dataset_dmc_sets)
+  compare_dmcs(da taset_dmc_sets)

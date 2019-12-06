@@ -162,16 +162,6 @@ def run_classifier(analysis_folder, cell_types, use_mvalues=False, p_value_thres
   B_control, B_control_var, B_disease, B_disease_var = \
       predict_bulk_dnam(Mc, Mc_var, Md, Md_var, cell_fracs, cpg_subset=signif_cpg)
 
-  # print(B_control)
-  # print(B_disease)
-  # print(B_control_var)
-  # print(B_disease_var)
-
-  # B_control_var, B_disease_var = compute_bulk_dnam_variance(B_control, B_disease, beta, phenotypes)
-
-  print(B_control_var.shape)
-  print(B_disease_var.shape)
-
   # STEP 5: Classify each person based on how well their measured bulk beta values matches either
   # the control or disease class-conditioned ones.
   likely_ratios = classify_using_beta_values(B_control, B_control_var, B_disease, B_disease_var, beta)
@@ -229,6 +219,35 @@ def classify_martino2018():
   print("==> Recall:", recall)
 
 
+def classify_martino2015_Mvalues():
+  """
+  Extract significant CpG locations and classify patients from Martino 2015 using them.
+  """
+  # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/" 
+  # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_neutro/"
+  analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_eosino/"
+  # NOTE(milo): Only use PBMC cell types here.
+  # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono"]
+  # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro"]
+  cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"]
+  # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"]
+  likely_ratios = run_classifier(analysis_folder, cell_types_m2015, use_mvalues=True, p_value_thresh=0.05)
+  phenotypes = pd.read_csv(os.path.join(analysis_folder, "phenotypes.csv"), index_col=0)
+
+  labels = {}
+  for patient in likely_ratios:
+    predicted_label = 1 if likely_ratios[patient] > 1 else 0
+    pheno_str = str(phenotypes.loc[patient,"challenge outcome:ch1"])
+    true_label = MARTINO2015_LABEL_MAP[pheno_str]
+    print("Patient {}: predicted={} true={}".format(patient, predicted_label, true_label))
+    labels[patient] = (predicted_label, true_label)
+
+  precision, recall = compute_precision_recall(labels)
+  print("\n====== CLASSIFICATION RESULTS =====")
+  print("==> Precision:", precision)
+  print("==> Recall:", recall)
+
+
 def classify_martino2018_Mvalues():
   analysis_folder = "../analysis/martino2018/Mvalues_control_vs_allergic/"
   cell_types_m2018 = ["CD4T", "CD8T"]
@@ -252,4 +271,5 @@ def classify_martino2018_Mvalues():
 if __name__ == "__main__":
   # classify_martino2015()
   # classify_martino2018()
-  classify_martino2018_Mvalues()
+  classify_martino2015_Mvalues()
+  # classify_martino2018_Mvalues()
