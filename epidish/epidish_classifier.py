@@ -239,14 +239,14 @@ def classify_martino2015_Mvalues():
 
 
 def run_classifier_martino2018_bulk():
+  test_patients = list(pd.read_csv("../analysis/martino2018/test_set.txt", header=None)[0])
   analysis_folder = "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/"
 
   likely_ratios = run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=0.05)
-
-  phenotypes = pd.read_csv(os.path.join(analysis_folder, "phenotypes.csv"), index_col=0)
+  phenotypes = pd.read_csv(os.path.join(analysis_folder, "../phenotypes.csv"), index_col=0)
 
   labels = {}
-  for patient in likely_ratios:
+  for patient in test_patients:
     predicted_label = 1 if likely_ratios[patient] > 1 else 0
     pheno_str = str(phenotypes.loc[patient,"allergy status:ch1"])
     true_label = MARTINO2018_LABEL_MAP[pheno_str]
@@ -260,14 +260,15 @@ def run_classifier_martino2018_bulk():
 
 
 def run_classifier_martino2018_cell_specific():
+  test_patients = list(pd.read_csv("../analysis/martino2018/test_set.txt", header=None)[0])
   analysis_folder = "../analysis/martino2018/Mvalues_control_vs_allergic/"
   cell_types_m2018 = ["CD4T", "CD8T"]
   likely_ratios = run_cell_specific_classifier(
-      analysis_folder, cell_types_m2018, use_mvalues=True, p_value_thresh=0.1)
-  phenotypes = pd.read_csv(os.path.join(analysis_folder, "phenotypes.csv"), index_col=0)
+      analysis_folder, cell_types_m2018, use_mvalues=True, p_value_thresh=0.10)
+  phenotypes = pd.read_csv(os.path.join(analysis_folder, "../phenotypes.csv"), index_col=0)
 
   labels = {}
-  for patient in likely_ratios:
+  for patient in test_patients:
     predicted_label = 1 if likely_ratios[patient] > 1 else 0
     pheno_str = str(phenotypes.loc[patient,"allergy status:ch1"])
     true_label = MARTINO2018_LABEL_MAP[pheno_str]
@@ -281,4 +282,5 @@ def run_classifier_martino2018_cell_specific():
 
 
 if __name__ == "__main__":
-  run_classifier_martino2018_bulk()
+  # run_classifier_martino2018_bulk()
+  run_classifier_martino2018_cell_specific()

@@ -18,13 +18,13 @@ def load_epidish_results(folder, mvalues=True, has_cellfrac=True):
   else:
     cell_frac = None
   
-  pheno = pd.read_csv(os.path.join(folder, "phenotypes.csv"), index_col=0)
+  pheno = pd.read_csv(os.path.join(folder, "../phenotypes.csv"), index_col=0)
 
   if not mvalues:
-    beta = pd.read_csv(os.path.join(folder, "beta.csv"), index_col=0)
+    beta = pd.read_csv(os.path.join(folder, "../beta.csv"), index_col=0)
     return coe_control, coe_change, cell_frac, pheno, beta
   else:
-    M = pd.read_csv(os.path.join(folder, "Mvalues.csv"), index_col=0)
+    M = pd.read_csv(os.path.join(folder, "../Mvalues.csv"), index_col=0)
     return coe_control, coe_change, cell_frac, pheno, M
 
 
