@@ -260,8 +260,6 @@ def run_classifier_martino2018_bulk():
 
 
 def run_classifier_martino2018_cell_specific():
-  """
-  """
   analysis_folder = "../analysis/martino2018/Mvalues_control_vs_allergic/"
   cell_types_m2018 = ["CD4T", "CD8T"]
   likely_ratios = run_cell_specific_classifier(
