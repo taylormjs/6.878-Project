@@ -6,8 +6,8 @@ from scipy.stats import multivariate_normal
 from classifier_utils import *
 
 # NOTE(milo): Make sure to change this once we figure out where sensitized belongs!
-MARTINO2015_LABEL_MAP = {"nonallergic": 0, "allergic": 1,"sensitized": 2}
-MARTINO2018_LABEL_MAP = {"control": 0, "allergic": 1,"resolved": 2}
+MARTINO2015_LABEL_MAP = {"nonallergic": 0, "allergic": 1, "sensitized": 2}
+MARTINO2018_LABEL_MAP = {"control": 0, "allergic": 1, "resolved": 2}
 
 
 def predict_bulk_dnam(M_control, M_control_var, M_disease, M_disease_var, cell_fracs,
