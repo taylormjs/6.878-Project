@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from scipy.stats import multivariate_normal
+from matplotlib import pyplot as plt
 
 from classifier_utils import *
 
@@ -186,7 +187,7 @@ def run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=0.05):
   assert(cell_fracs is None) # Expect these to be None.
 
   # STEP 2: Extract significant CpG locations (adjP < 0.05).
-  signif_cpg = report_significant_cpgs_bulk(coe_change, p_value_thresh=p_value_thresh)[:100]
+  signif_cpg = report_significant_cpgs_bulk(coe_change, p_value_thresh=p_value_thresh)
   print("==> All significant CpG locations:")
   print(signif_cpg)
 
@@ -208,25 +209,31 @@ def run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=0.05):
   return likely_ratios
 
 
-def classify_martino2015_Mvalues():
+def cs_2015_classifier(p_value_thresh, likelihood_ratio):
   """
   Extract significant CpG locations and classify patients from Martino 2015 using them.
   """
-  # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/" 
+  analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/" 
   # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_neutro/"
-  analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_eosino/"
+  # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_eosino/"
+  # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/"
   # NOTE(milo): Only use PBMC cell types here.
   # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono"]
   # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro"]
-  cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"]
-  # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"]
+  # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"]
+  cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"]
+
   likely_ratios = run_cell_specific_classifier(
-      analysis_folder, cell_types_m2015, use_mvalues=True, p_value_thresh=0.05)
-  phenotypes = pd.read_csv(os.path.join(analysis_folder, "phenotypes.csv"), index_col=0)
+      analysis_folder, cell_types_m2015, use_mvalues=True, p_value_thresh=p_value_thresh)
+  phenotypes = pd.read_csv(os.path.join(analysis_folder, "../phenotypes.csv"), index_col=0)
+
+  with open(os.path.join(analysis_folder, "likelihood_ratios.txt"), "w") as f:
+    for patient in likely_ratios:
+      f.write("{} {}\n".format(patient, likely_ratios[patient]))
 
   labels = {}
   for patient in likely_ratios:
-    predicted_label = 1 if likely_ratios[patient] > 1 else 0
+    predicted_label = 1 if likely_ratios[patient] > likelihood_ratio else 0
     pheno_str = str(phenotypes.loc[patient,"challenge outcome:ch1"])
     true_label = MARTINO2015_LABEL_MAP[pheno_str]
     print("Patient {}: predicted={} true={}".format(patient, predicted_label, true_label))
@@ -237,17 +244,51 @@ def classify_martino2015_Mvalues():
   print("==> Precision:", precision)
   print("==> Recall:", recall)
 
+  return precision, recall
 
-def run_classifier_martino2018_bulk():
+
+def bulk_2015_classifier(p_value_thresh, likelihood_ratio):
+  test_patients = list(pd.read_csv("../analysis/martino2015/test_set.txt", header=None)[0])
+  analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_bulk/"
+
+  likely_ratios = run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=p_value_thresh)
+  phenotypes = pd.read_csv(os.path.join(analysis_folder, "../phenotypes.csv"), index_col=0)
+
+  with open(os.path.join(analysis_folder, "likelihood_ratios.txt"), "w") as f:
+    for patient in likely_ratios:
+      f.write("{} {}\n".format(patient, likely_ratios[patient]))
+
+  labels = {}
+  for patient in test_patients:
+    predicted_label = 1 if likely_ratios[patient] > likelihood_ratio else 0
+    pheno_str = str(phenotypes.loc[patient,"challenge outcome:ch1"])
+    true_label = MARTINO2015_LABEL_MAP[pheno_str]
+    print("Patient {}: predicted={} true={}".format(patient, predicted_label, true_label))
+    labels[patient] = (predicted_label, true_label)
+
+  precision, recall = compute_precision_recall(labels)
+  print("\n====== CLASSIFICATION RESULTS =====")
+  print("==> Precision:", precision)
+  print("==> Recall:", recall)
+
+  # print(labels)
+  return precision, recall
+
+
+def bulk_2018_classifier(p_value_thresh, likelihood_ratio):
   test_patients = list(pd.read_csv("../analysis/martino2018/test_set.txt", header=None)[0])
   analysis_folder = "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/"
 
-  likely_ratios = run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=0.05)
+  likely_ratios = run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=p_value_thresh)
   phenotypes = pd.read_csv(os.path.join(analysis_folder, "../phenotypes.csv"), index_col=0)
+
+  with open(os.path.join(analysis_folder, "likelihood_ratios.txt"), "w") as f:
+    for patient in likely_ratios:
+      f.write("{} {}\n".format(patient, likely_ratios[patient]))
 
   labels = {}
   for patient in test_patients:
-    predicted_label = 1 if likely_ratios[patient] > 1 else 0
+    predicted_label = 1 if likely_ratios[patient] > likelihood_ratio else 0
     pheno_str = str(phenotypes.loc[patient,"allergy status:ch1"])
     true_label = MARTINO2018_LABEL_MAP[pheno_str]
     print("Patient {}: predicted={} true={}".format(patient, predicted_label, true_label))
@@ -258,19 +299,30 @@ def run_classifier_martino2018_bulk():
   print("==> Precision:", precision)
   print("==> Recall:", recall)
 
+  # print(labels)
+  return precision, recall
 
-def run_classifier_martino2018_cell_specific():
+
+def cs_2018_classifier(p_value_thresh, likelihood_ratio):
   test_patients = list(pd.read_csv("../analysis/martino2018/test_set.txt", header=None)[0])
   analysis_folder = "../analysis/martino2018/Mvalues_control_vs_allergic/"
   cell_types_m2018 = ["CD4T", "CD8T"]
+
   likely_ratios = run_cell_specific_classifier(
-      analysis_folder, cell_types_m2018, use_mvalues=True, p_value_thresh=0.10)
+      analysis_folder, cell_types_m2018, use_mvalues=True, p_value_thresh=p_value_thresh)
   phenotypes = pd.read_csv(os.path.join(analysis_folder, "../phenotypes.csv"), index_col=0)
+
+  with open(os.path.join(analysis_folder, "likelihood_ratios.txt"), "w") as f:
+    for patient in likely_ratios:
+      f.write("{} {}\n".format(patient, likely_ratios[patient]))
 
   labels = {}
   for patient in test_patients:
-    predicted_label = 1 if likely_ratios[patient] > 1 else 0
-    pheno_str = str(phenotypes.loc[patient,"allergy status:ch1"])
+    predicted_label = 1 if likely_ratios[patient] > likelihood_ratio else 0
+
+
+    pheno_str = str(phenotypes.loc[patient, "allergy status:ch1"])
+
     true_label = MARTINO2018_LABEL_MAP[pheno_str]
     print("Patient {}: predicted={} true={}".format(patient, predicted_label, true_label))
     labels[patient] = (predicted_label, true_label)
@@ -280,7 +332,123 @@ def run_classifier_martino2018_cell_specific():
   print("==> Precision:", precision)
   print("==> Recall:", recall)
 
+  return precision, recall
 
-if __name__ == "__main__":
-  # run_classifier_martino2018_bulk()
-  run_classifier_martino2018_cell_specific()
+
+def precision_recall_vs_pvalue_thresh(function_to_run):
+  """
+  Look at the classifier performance as we vary the p_value_threshold for choosing CpG features.
+      
+  Outputs a text file where each line has:
+  p_value_thresh    precision    recall
+  """
+  likelihood_ratio = 1
+
+  # for p_value_thresh in np.arange(0.05, 0.55, 0.05):
+  for p_value_thresh in np.arange(0.05, 0.15, 0.01):
+    pr, re = function_to_run(p_value_thresh, likelihood_ratio)
+    
+    with open("{}_pr_pvalue_thresh.txt".format(function_to_run.__name__), "a") as f:
+      f.write("{} {} {}\n".format(p_value_thresh, pr, re))
+
+
+def precision_recall_vs_cutoff(lr_files):
+  """
+  Look at classifier performance as we vary the likelihood ratio for classifying disease.
+
+  Outputs a text file with format:
+  likelihood_ratio    precision   recall
+  """
+  fig, axs = plt.subplots()
+
+  for name in lr_files:
+    precisions = []
+    recalls = []
+
+    fname, dataset = lr_files[name]
+    patient_and_ratio = pd.read_csv(fname, header=None, index_col=0, delim_whitespace=True, names=["patient", "ratio"])
+
+    test_set_fname = "../analysis/martino{}/test_set.txt".format(dataset)
+    test_patients = pd.read_csv(test_set_fname, header=None)[0]
+
+    phenotypes = pd.read_csv("../analysis/martino{}/phenotypes.csv".format(dataset), index_col=0)
+
+    for lr in np.arange(0.5, 2.0, 0.05):
+      labels = {}
+
+      for patient in test_patients:
+        predicted_label = 1 if patient_and_ratio.loc[patient, "ratio"] >= lr else 0
+
+        pheno_str = str(phenotypes.loc[patient,"allergy status:ch1" if dataset == 2018 else "challenge outcome:ch1"])
+        true_label = MARTINO2018_LABEL_MAP[pheno_str] if dataset == 2018 else MARTINO2015_LABEL_MAP[pheno_str]
+        # print("Patient {}: predicted={} true={}".format(patient, predicted_label, true_label))
+        labels[patient] = (predicted_label, true_label)
+
+      pr, re = compute_precision_recall(labels)
+
+      precisions.append(pr)
+      recalls.append(re)
+
+    axs.plot(recalls, precisions, label=name)
+
+  axs.legend()
+  axs.set_title("Classifier Precision and Recall")
+  axs.set_xlabel("recall")
+  axs.set_ylabel("precision")
+  plt.show()
+
+
+def make_param_precision_recall_plot(pr_files):
+  """
+  Each file has some precision-recall values for a classifier as we vary an input parameter.
+  """
+  fig, axs = plt.subplots()
+  axs.set_xlabel("recall")
+  axs.set_ylabel("precision")
+  axs.set_title("Classifier Precision vs. Recall")
+
+  for name in pr_files:
+    fname = pr_files[name]
+    results = np.loadtxt(fname)
+    pr = results[:,1]
+    re = results[:,2]
+    axs.plot(re, pr, label=name, marker="o", linewidth=0, markersize=10)
+
+  axs.legend()
+  plt.show()
+
+
+if __name__ == "__main__":  
+  # cs_2015_classifier(0.05, 1) # Do for PBMC.
+  # cs_2015_classifier(0.06, 1) # Do for ALL.
+
+  # bulk_2018_classifier(0.02, 1)
+  # cs_2018_classifier(0.25, 1)
+
+  # precision_recall_vs_pvalue_thresh(bulk_2018_classifier)
+  # precision_recall_vs_pvalue_thresh(cs_2018_classifier)
+
+  # precision_recall_vs_pvalue_thresh(bulk_2015_classifier)
+  # precision_recall_vs_pvalue_thresh(cs_2015_classifier)
+
+  # pr_files = {
+  #   "ALL_2015" : "cs_2015_classifier_pr_pvalue_thresh_all.txt",
+  #   "PBMC_2015" : "cs_2015_classifier_pr_pvalue_thresh_pbmc.txt",
+  #   "CD4_2018" : "bulk_2018_classifier_pr_pvalue_thresh.txt",
+  #   "CD4_CD8_2018": "cs_2018_classifier_pr_pvalue_thresh.txt"
+  # }
+  # make_param_precision_recall_plot(pr_files)
+
+  # Best p-value cutoffs:
+  # 2015 ALL: 0.06
+  # 2015 PBMC: 0.05
+  # 2018 CD4: 0.02
+  # 2018 CD4 and CD8: 0.25
+
+  lr_files = {
+    "2015_all": ("../analysis/likelihood_ratios/2015_all.txt", 2015),
+    "2015_pbmc": ("../analysis/likelihood_ratios/2015_pbmc.txt", 2015),
+    "2018_cd4": ("../analysis/likelihood_ratios/2018_cd4.txt", 2018),
+    "2018_cd4_cd8": ("../analysis/likelihood_ratios/2018_cd4_cd8.txt", 2018)
+  }
+  precision_recall_vs_cutoff(lr_files)

@@ -45,15 +45,22 @@ def compute_precision_recall(labels):
         tn += 1
       elif pred == 1:
         tp += 1
+      else:
+        raise NotImplementedError()
 
     if pred != true:
       if pred == 0:
         fn += 1
       elif pred == 1:
         fp += 1
+      else:
+        raise NotImplementedError()
 
-  precision = tp / (tp + fp)
-  recall = tp / (tp + fn)
+  total = tp + fp + tn + fn
+  assert(total == len(labels))
+
+  precision = tp / (tp + fp) if (tp + fp) > 0 else 1.0
+  recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
 
   return precision, recall
 

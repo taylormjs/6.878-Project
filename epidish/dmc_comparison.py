@@ -44,8 +44,9 @@ def compare_dmcs(dataset_dmc_sets):
   """
   print("---------------------------------------------------------------------")
   names = list(dataset_dmc_sets.keys())
-  summary = np.zeros((len(names), len(names)))
+  summary = np.zeros((len(names), len(names)), dtype=np.int32)
   unique_dmcs = dataset_dmc_sets.copy()
+  print(names)
 
   print("\n============ SHARED DMCs ============")
   for i in range(len(names)-1):
@@ -66,12 +67,12 @@ def compare_dmcs(dataset_dmc_sets):
       for dmc in shared_dmcs:
         print(" >>", dmc)
 
-  print("\n============ UNIQUE DMCs =============")
+  # print("\n============ UNIQUE DMCs =============")
   for i, name in enumerate(names):
-    print("\n==> Dataset {} has {} unique DMCs:".format(name, len(unique_dmcs[name])))
-    for dmc in unique_dmcs[name]:
-      print(" >>", dmc)
-    summary[i, i] = len(unique_dmcs[name])
+    # print("\n==> Dataset {} has {} unique DMCs:".format(name, len(unique_dmcs[name])))
+    # for dmc in unique_dmcs[name]:
+    #   print(" >>", dmc)
+    summary[i, i] = int(len(unique_dmcs[name]))
   
   print("\n============== SUMMARY ==============")
   print(summary)
@@ -83,12 +84,17 @@ def compare_dmcs(dataset_dmc_sets):
   print(summary)
 
 
-def save_signif_cpg_files(folders, cell_types_for_each, mvalues):
+def save_signif_cpg_files(folders, cell_types_for_each, p_value_thresh):
   for i, analysis_folder in enumerate(folders):
     cell_types = cell_types_for_each[i]
     coe_control, coe_change, cell_fracs, phenotypes, beta = \
-        load_epidish_results(analysis_folder, mvalues=mvalues[i])
-    signif_cpg = report_significant_cpgs(cell_types, coe_change, p_value_thresh=0.1)
+        load_epidish_results(analysis_folder, mvalues=True, has_cellfrac=False)
+
+    if cell_types is not None:
+      signif_cpg = report_significant_cpgs(cell_types, coe_change, p_value_thresh=p_value_thresh)
+    else:
+      signif_cpg = report_significant_cpgs_bulk(coe_change, p_value_thresh=p_value_thresh)
+
     print("==> All significant CpG locations:")
     print(signif_cpg)
 
@@ -110,67 +116,57 @@ def load_signif_cpg_files(folders, dataset_names):
 
 def dmc_comparison_main():
   folders = [
-    # "../analysis/martino2015/nonallergic_vs_allergic_only_pbmc/",
-    # "../analysis/martino2015/nonallergic_vs_allergic_with_eosino/",
-    # "../analysis/martino2015/nonallergic_vs_allergic_with_neutro/",
-    # "../analysis/martino2018/control_vs_allergic/",
     # "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/",
-    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/",
-    "../analysis/martino2018/Mvalues_control_vs_allergic/"
+    # "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/",
+    # "../analysis/martino2018/Mvalues_control_vs_allergic/",
+    "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/",
+    "../analysis/martino2018/shap/"
   ]
   names = [
-    # "2015_only_pbmc",
-    # "2015_with_eosino",
-    # "2015_with_neutro",
-    # "2015_Mvalues",
-    "2015_Mvalues",
-    "2018_Mvalues"
+    # "2015_all",
+    # "2015_pbmc",
+    # "2018_cd4_cd8",
+    "2018_cd4",
+    "2018_shap"
   ]
   cell_types_for_each = [
-    # ["B", "NK", "CD4T", "CD8T", "Mono"],
-    # ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"],
-    # ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro"],
-    # ["CD4", "CD8"],
     # ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"],
-    ["B", "NK", "CD4T", "CD8T", "Mono"],
-    ["CD4T", "CD8T"]
+    # ["B", "NK", "CD4T", "CD8T", "Mono"],
+    # ["CD4T", "CD8T"],
+    None,
+    None
   ]
 
-  mvalues = [
-    True,
-    # True
-  ]
-
-  # save_signif_cpg_files(folders, cell_types_for_each, mvalues=mvalues)
-  # save_signif_cpg_files(["../analysis/martino2018/Mvalues_control_vs_allergic"], [["CD4T", "CD8T"]], [True])
-
+  # save_signif_cpg_files(folders, cell_types_for_each, 0.05)
   dataset_dmc_sets = load_signif_cpg_files(folders, names)
   compare_dmcs(dataset_dmc_sets)
 
 
 if __name__ == "__main__":
-  folders = [
-    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_eosino/",
-    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_neutro/",
-    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/",
-    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/",
-    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_bulk/",
-    "../analysis/martino2018/Mvalues_control_vs_allergic/",
-    "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/"
-  ]
+  # folders = [
+  #   "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_eosino/",
+  #   "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_neutro/",
+  #   "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/",
+  #   "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/",
+  #   "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_bulk/",
+  #   "../analysis/martino2018/Mvalues_control_vs_allergic/",
+  #   "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/"
+  # ]
 
-  cell_types_for_each = [
-    ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"],
-    ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro"],
-    ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"],
-    ["B", "NK", "CD4T", "CD8T", "Mono"],
-    None,
-    ["CD4T", "CD8T"],
-    None
-  ]
+  # cell_types_for_each = [
+  #   ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"],
+  #   ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro"],
+  #   ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"],
+  #   ["B", "NK", "CD4T", "CD8T", "Mono"],
+  #   None,
+  #   ["CD4T", "CD8T"],
+  #   None
+  # ]
 
-  for i in range(len(folders)):
-    folder = folders[i]
-    print(">> Plotting histograms for folder {}".format(folder))
-    cell_types = cell_types_for_each[i]
-    plot_pvalue_histogram(folder, cell_types)
+  # for i in range(len(folders)):
+  #   folder = folders[i]
+  #   print(">> Plotting histograms for folder {}".format(folder))
+  #   cell_types = cell_types_for_each[i]
+  #   plot_pvalue_histogram(folder, cell_types)
+
+  dmc_comparison_main()
