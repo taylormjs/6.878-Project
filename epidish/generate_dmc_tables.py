@@ -9,8 +9,10 @@ def write_dmc_csv(folder):
 
 
 if __name__ == "__main__":
-  # folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/"
-  # folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/"
-  folder = "../analysis/martino2018/Mvalues_control_vs_allergic/"
+  folders = ["../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/",
+              "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/",
+              "../analysis/martino2018/Mvalues_control_vs_allergic/",
+              "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/"]
 
-  write_dmc_csv(folder)
+  for f in folders:
+    write_dmc_csv(f)

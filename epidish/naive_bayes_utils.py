@@ -205,3 +205,134 @@ def rename_control_cols(coe_control, cell_types):
 
   coe_control = coe_control.rename(columns=colname_map)
   return coe_control
+
+
+def predict_bulk_dnam(M_control, M_control_var, M_disease, M_disease_var, cell_fracs,
+                      cpg_subset=None):
+  """
+  Predict the bulk DNAm beta values that we would expect for a control and disease person. Also
+  compute the expected variance of those predictions.
+
+  M_control (pd.DataFrame) : Each row is a CpG and each col is a cell type.
+  M_control_var (pd.DataFrame) : Each row is a CpG and each col is a cell type.
+  M_disease (pd.DataFrame) : Each row is a CpG and each col is a cell type.
+  M_disease_var (pd.DataFrame) : Each row is a CpG and each col is a cell type.
+  cell_fracs (pd.DataFrame) : Each row is a patient and each col is a cell type.
+  cpg_subset (list) : A list of CpG names that we care about predicting bulk values for (i.e ones
+                      with significant p-value).
+  """
+  cell_fracs_np = cell_fracs.transpose().to_numpy()
+
+  k, N = cell_fracs_np.shape
+
+  # The control matrix has variables for the Intercept and each cell type.
+  # Multiply (C x k+1) DNAm coeffs by augmented cell fractions (k+1 x N) to get a "bulk" DNA vector.
+  M_control_np = M_control.to_numpy()
+  M_control_var_np = M_control_var.to_numpy()
+
+  # Add a leading vector of ones which will be multiplied against the intercept (effective adding it).
+  intercept_and_cell_fracs_np = np.concatenate((np.ones((1, N)), cell_fracs_np), axis=0)
+
+  # B_control = intercept + coeff * cell_frac
+  B_control = np.dot(M_control_np, intercept_and_cell_fracs_np)
+  B_control_var = np.dot(M_control_var_np, intercept_and_cell_fracs_np ** 2)
+
+  # Multiply (C x k) DNAm delta coeffs by cell fractions (k x N) to get a "bulk" DNA delta vector.
+  # The disease bulk vector = B_control + B_disease_delta.
+  M_disease_np = M_disease.to_numpy()
+  M_disease_var_np = M_disease_var.to_numpy()
+
+  B_disease_delta = np.dot(M_disease_np, cell_fracs_np)
+  B_disease_delta_var = np.dot(M_disease_var_np, cell_fracs_np ** 2)
+
+  B_disease = B_control + B_disease_delta
+  B_disease_var = B_control_var + B_disease_delta_var
+
+  # Convert the numpy arrays back to pd.Dataframe. The rows are CpG locations and the columns are
+  # the names of individuals.
+  B_control = B_control.clip(min=0, max=1)
+  B_disease = B_disease.clip(min=0, max=1)
+
+  B_control = pd.DataFrame(B_control, index=M_control.index, columns=cell_fracs.index)
+  B_control_var = pd.DataFrame(B_control_var, index=M_control.index, columns=cell_fracs.index)
+  B_disease = pd.DataFrame(B_disease, index=M_control.index, columns=cell_fracs.index)
+  B_disease_var = pd.DataFrame(B_disease_var, index=M_control.index, columns=cell_fracs.index)
+
+  # Optionally take a subset of the CpG locations (rows) if we only care about some of them for
+  # classification.
+  if cpg_subset is not None:
+    B_control = B_control.loc[cpg_subset,]
+    B_control_var = B_control_var.loc[cpg_subset,]
+    B_disease = B_disease.loc[cpg_subset,]
+    B_disease_var = B_disease_var.loc[cpg_subset,]
+
+  return B_control, B_control_var, B_disease, B_disease_var
+
+
+def classify_patients(B_control, B_control_var, B_disease, B_disease_var,
+                      observed_beta_or_mvalues, bulk=False):
+  """
+  Classify a person as control or disease using their observed bulk beta or M-values.
+
+  B_control (pd.DataFrame) : Row for each CpG, col for each patient.
+  B_control_var (pd.DataFrame) : Row for each CpG, col for each patient.
+  B_disease (pd.DataFrame) : Row for each CpG, col for each patient.
+  B_disease_var (pd.DataFrame) : Row for each CpG, col for each patient.
+  observed_beta_or_mvalues (pd.DataFrame) : Row for each CpG, column for each patient.
+
+  Returns a (dict) where keys are patient names, and values are the ratio of disease likelihood to
+  control likelihood. Ratios > 1 indicate that someone is more likely to be disease than control.
+  """
+  patient_names = observed_beta_or_mvalues.columns
+  signif_cpg_names = B_control.index
+  likelihood_ratios = {}
+
+  for i, patient in enumerate(patient_names):
+    # For cell-specific data, we have a predicted bulk vector for each patient, since they all have
+    # different cell fractions. For bulk data, the same predicted control and disease vector is used
+    # for all patients.
+    if bulk:
+      pred_control_beta = B_control
+      pred_control_var = B_control_var
+
+      pred_disease_beta = B_disease
+      pred_disease_var = B_disease_var
+
+    else:
+      pred_control_beta = B_control.loc[:,patient]
+      pred_control_var = B_control_var.loc[:,patient]
+
+      pred_disease_beta = B_disease.loc[:,patient]
+      pred_disease_var = B_disease_var.loc[:,patient]
+
+    # NOTE(milo): Way too slow.
+    # control_ll = 0
+    # disease_ll = 0
+
+    # for cpg_name, j in enumerate(signif_cpg_names):
+    #   obs_beta_or_m = observed_beta_or_mvalues.loc[signif_cpg_names,patient]
+
+    #   control_ll += multivariate_normal.logpdf(
+    #     obs_beta_or_m, mean=pred_control_beta[cpg_name], cov=np.sqrt(pred_control_var[cpg_name]))
+
+    #   disease_ll += multivariate_normal.logpdf(
+    #     obs_beta_or_m, mean=pred_disease_beta[cpg_name], cov=np.sqrt(pred_disease_var[cpg_name]))
+
+    # NOTE(milo): Much faster, but doesn't work when there are thousands of CpG locations.
+    # Doesn't make sense to allocate a massive matrix with only the diagonal filled.
+    control_likelihood = multivariate_normal.pdf(
+      observed_beta_or_mvalues.loc[signif_cpg_names,patient],
+      mean=pred_control_beta,
+      cov=np.diag(np.sqrt(pred_control_var)))
+
+    disease_likelihood = multivariate_normal.pdf(
+      observed_beta_or_mvalues.loc[signif_cpg_names,patient],
+      mean=pred_disease_beta,
+      cov=np.diag(np.sqrt(pred_disease_var)))
+
+    likelihood_ratios[patient] = disease_likelihood / control_likelihood
+
+    # likelihood_ratios[patient] = np.exp(disease_ll) / np.exp(control_ll)
+    # print("Finished patient {}".format(i))
+
+  return likelihood_ratios

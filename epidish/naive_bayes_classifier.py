@@ -4,142 +4,11 @@ import pandas as pd
 from scipy.stats import multivariate_normal
 from matplotlib import pyplot as plt
 
-from classifier_utils import *
+from naive_bayes_utils import *
 
 # NOTE(milo): Make sure to change this once we figure out where sensitized belongs!
 MARTINO2015_LABEL_MAP = {"nonallergic": 0, "allergic": 1, "sensitized": 2}
 MARTINO2018_LABEL_MAP = {"control": 0, "allergic": 1, "resolved": 2}
-
-
-def predict_bulk_dnam(M_control, M_control_var, M_disease, M_disease_var, cell_fracs,
-                      cpg_subset=None):
-  """
-  Predict the bulk DNAm beta values that we would expect for a control and disease person. Also
-  compute the expected variance of those predictions.
-
-  M_control (pd.DataFrame) : Each row is a CpG and each col is a cell type.
-  M_control_var (pd.DataFrame) : Each row is a CpG and each col is a cell type.
-  M_disease (pd.DataFrame) : Each row is a CpG and each col is a cell type.
-  M_disease_var (pd.DataFrame) : Each row is a CpG and each col is a cell type.
-  cell_fracs (pd.DataFrame) : Each row is a patient and each col is a cell type.
-  cpg_subset (list) : A list of CpG names that we care about predicting bulk values for (i.e ones
-                      with significant p-value).
-  """
-  cell_fracs_np = cell_fracs.transpose().to_numpy()
-
-  k, N = cell_fracs_np.shape
-
-  # The control matrix has variables for the Intercept and each cell type.
-  # Multiply (C x k+1) DNAm coeffs by augmented cell fractions (k+1 x N) to get a "bulk" DNA vector.
-  M_control_np = M_control.to_numpy()
-  M_control_var_np = M_control_var.to_numpy()
-
-  # Add a leading vector of ones which will be multiplied against the intercept (effective adding it).
-  intercept_and_cell_fracs_np = np.concatenate((np.ones((1, N)), cell_fracs_np), axis=0)
-
-  # B_control = intercept + coeff * cell_frac
-  B_control = np.dot(M_control_np, intercept_and_cell_fracs_np)
-  B_control_var = np.dot(M_control_var_np, intercept_and_cell_fracs_np ** 2)
-
-  # Multiply (C x k) DNAm delta coeffs by cell fractions (k x N) to get a "bulk" DNA delta vector.
-  # The disease bulk vector = B_control + B_disease_delta.
-  M_disease_np = M_disease.to_numpy()
-  M_disease_var_np = M_disease_var.to_numpy()
-
-  B_disease_delta = np.dot(M_disease_np, cell_fracs_np)
-  B_disease_delta_var = np.dot(M_disease_var_np, cell_fracs_np ** 2)
-
-  B_disease = B_control + B_disease_delta
-  B_disease_var = B_control_var + B_disease_delta_var
-
-  # Convert the numpy arrays back to pd.Dataframe. The rows are CpG locations and the columns are
-  # the names of individuals.
-  B_control = B_control.clip(min=0, max=1)
-  B_disease = B_disease.clip(min=0, max=1)
-
-  B_control = pd.DataFrame(B_control, index=M_control.index, columns=cell_fracs.index)
-  B_control_var = pd.DataFrame(B_control_var, index=M_control.index, columns=cell_fracs.index)
-  B_disease = pd.DataFrame(B_disease, index=M_control.index, columns=cell_fracs.index)
-  B_disease_var = pd.DataFrame(B_disease_var, index=M_control.index, columns=cell_fracs.index)
-
-  # Optionally take a subset of the CpG locations (rows) if we only care about some of them for
-  # classification.
-  if cpg_subset is not None:
-    B_control = B_control.loc[cpg_subset,]
-    B_control_var = B_control_var.loc[cpg_subset,]
-    B_disease = B_disease.loc[cpg_subset,]
-    B_disease_var = B_disease_var.loc[cpg_subset,]
-
-  return B_control, B_control_var, B_disease, B_disease_var
-
-
-def classify_patients(B_control, B_control_var, B_disease, B_disease_var,
-                      observed_beta_or_mvalues, bulk=False):
-  """
-  Classify a person as control or disease using their observed bulk beta or M-values.
-
-  B_control (pd.DataFrame) : Row for each CpG, col for each patient.
-  B_control_var (pd.DataFrame) : Row for each CpG, col for each patient.
-  B_disease (pd.DataFrame) : Row for each CpG, col for each patient.
-  B_disease_var (pd.DataFrame) : Row for each CpG, col for each patient.
-  observed_beta_or_mvalues (pd.DataFrame) : Row for each CpG, column for each patient.
-
-  Returns a (dict) where keys are patient names, and values are the ratio of disease likelihood to
-  control likelihood. Ratios > 1 indicate that someone is more likely to be disease than control.
-  """
-  patient_names = observed_beta_or_mvalues.columns
-  signif_cpg_names = B_control.index
-  likelihood_ratios = {}
-
-  for i, patient in enumerate(patient_names):
-    # For cell-specific data, we have a predicted bulk vector for each patient, since they all have
-    # different cell fractions. For bulk data, the same predicted control and disease vector is used
-    # for all patients.
-    if bulk:
-      pred_control_beta = B_control
-      pred_control_var = B_control_var
-
-      pred_disease_beta = B_disease
-      pred_disease_var = B_disease_var
-
-    else:
-      pred_control_beta = B_control.loc[:,patient]
-      pred_control_var = B_control_var.loc[:,patient]
-
-      pred_disease_beta = B_disease.loc[:,patient]
-      pred_disease_var = B_disease_var.loc[:,patient]
-
-    # NOTE(milo): Way too slow.
-    # control_ll = 0
-    # disease_ll = 0
-
-    # for cpg_name, j in enumerate(signif_cpg_names):
-    #   obs_beta_or_m = observed_beta_or_mvalues.loc[signif_cpg_names,patient]
-
-    #   control_ll += multivariate_normal.logpdf(
-    #     obs_beta_or_m, mean=pred_control_beta[cpg_name], cov=np.sqrt(pred_control_var[cpg_name]))
-
-    #   disease_ll += multivariate_normal.logpdf(
-    #     obs_beta_or_m, mean=pred_disease_beta[cpg_name], cov=np.sqrt(pred_disease_var[cpg_name]))
-
-    # NOTE(milo): Much faster, but doesn't work when there are thousands of CpG locations.
-    # Doesn't make sense to allocate a massive matrix with only the diagonal filled.
-    control_likelihood = multivariate_normal.pdf(
-      observed_beta_or_mvalues.loc[signif_cpg_names,patient],
-      mean=pred_control_beta,
-      cov=np.diag(np.sqrt(pred_control_var)))
-
-    disease_likelihood = multivariate_normal.pdf(
-      observed_beta_or_mvalues.loc[signif_cpg_names,patient],
-      mean=pred_disease_beta,
-      cov=np.diag(np.sqrt(pred_disease_var)))
-
-    likelihood_ratios[patient] = disease_likelihood / control_likelihood
-
-    # likelihood_ratios[patient] = np.exp(disease_ll) / np.exp(control_ll)
-    # print("Finished patient {}".format(i))
-
-  return likelihood_ratios
 
 
 def run_cell_specific_classifier(analysis_folder, cell_types, use_mvalues=True, p_value_thresh=0.05):
@@ -170,7 +39,7 @@ def run_cell_specific_classifier(analysis_folder, cell_types, use_mvalues=True, 
   # the control or disease class-conditioned ones.
   likely_ratios = classify_patients(B_control, B_control_var, B_disease, B_disease_var, beta)
 
-  return likely_ratios
+  return likely_ratios, signif_cpg, coe_change.loc[signif_cpg]
 
 
 def run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=0.05):
@@ -206,30 +75,26 @@ def run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=0.05):
   likely_ratios = classify_patients(B_control, B_control_var, B_disease, B_disease_var,
                                     beta_or_mvalues, bulk=True)
 
-  return likely_ratios
+  return likely_ratios, signif_cpg, coe_change.loc[signif_cpg]
 
 
-def cs_2015_classifier(p_value_thresh, likelihood_ratio):
+def cs_2015_classifier(p_value_thresh, likelihood_ratio, write_results=True):
   """
   Extract significant CpG locations and classify patients from Martino 2015 using them.
   """
-  analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/" 
+  # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/" 
   # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_neutro/"
   # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_eosino/"
-  # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/"
+  analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/"
   # NOTE(milo): Only use PBMC cell types here.
-  # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono"]
+  cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono"]
   # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro"]
   # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"]
-  cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"]
+  # cell_types_m2015 = ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"]
 
-  likely_ratios = run_cell_specific_classifier(
-      analysis_folder, cell_types_m2015, use_mvalues=True, p_value_thresh=p_value_thresh)
+  likely_ratios, signif_cpgs, coe_change_signif = \
+      run_cell_specific_classifier(analysis_folder, cell_types_m2015, use_mvalues=True, p_value_thresh=p_value_thresh)
   phenotypes = pd.read_csv(os.path.join(analysis_folder, "../phenotypes.csv"), index_col=0)
-
-  with open(os.path.join(analysis_folder, "likelihood_ratios.txt"), "w") as f:
-    for patient in likely_ratios:
-      f.write("{} {}\n".format(patient, likely_ratios[patient]))
 
   labels = {}
   for patient in likely_ratios:
@@ -244,19 +109,20 @@ def cs_2015_classifier(p_value_thresh, likelihood_ratio):
   print("==> Precision:", precision)
   print("==> Recall:", recall)
 
+  if write_results:
+    write_classifier_results(analysis_folder, p_value_thresh, likely_ratios, labels, precision,
+                             recall, signif_cpgs, coe_change_signif)
+
   return precision, recall
 
 
-def bulk_2015_classifier(p_value_thresh, likelihood_ratio):
+def bulk_2015_classifier(p_value_thresh, likelihood_ratio, write_results=True):
   test_patients = list(pd.read_csv("../analysis/martino2015/test_set.txt", header=None)[0])
   analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_bulk/"
 
-  likely_ratios = run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=p_value_thresh)
+  likely_ratios, signif_cpgs, coe_change_signif \
+      = run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=p_value_thresh)
   phenotypes = pd.read_csv(os.path.join(analysis_folder, "../phenotypes.csv"), index_col=0)
-
-  with open(os.path.join(analysis_folder, "likelihood_ratios.txt"), "w") as f:
-    for patient in likely_ratios:
-      f.write("{} {}\n".format(patient, likely_ratios[patient]))
 
   labels = {}
   for patient in test_patients:
@@ -271,20 +137,21 @@ def bulk_2015_classifier(p_value_thresh, likelihood_ratio):
   print("==> Precision:", precision)
   print("==> Recall:", recall)
 
+  if write_results:
+    write_classifier_results(analysis_folder, p_value_thresh, likely_ratios, labels, precision,
+                             recall, signif_cpgs, coe_change_signif)
+
   # print(labels)
   return precision, recall
 
 
-def bulk_2018_classifier(p_value_thresh, likelihood_ratio):
+def bulk_2018_classifier(p_value_thresh, likelihood_ratio, write_results=True):
   test_patients = list(pd.read_csv("../analysis/martino2018/test_set.txt", header=None)[0])
   analysis_folder = "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/"
 
-  likely_ratios = run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=p_value_thresh)
+  likely_ratios, signif_cpgs, coe_change_signif = \
+      run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=p_value_thresh)
   phenotypes = pd.read_csv(os.path.join(analysis_folder, "../phenotypes.csv"), index_col=0)
-
-  with open(os.path.join(analysis_folder, "likelihood_ratios.txt"), "w") as f:
-    for patient in likely_ratios:
-      f.write("{} {}\n".format(patient, likely_ratios[patient]))
 
   labels = {}
   for patient in test_patients:
@@ -299,30 +166,28 @@ def bulk_2018_classifier(p_value_thresh, likelihood_ratio):
   print("==> Precision:", precision)
   print("==> Recall:", recall)
 
+  if write_results:
+    write_classifier_results(analysis_folder, p_value_thresh, likely_ratios, labels, precision,
+                             recall, signif_cpgs, coe_change_signif)
+
   # print(labels)
   return precision, recall
 
 
-def cs_2018_classifier(p_value_thresh, likelihood_ratio):
+def cs_2018_classifier(p_value_thresh, likelihood_ratio, write_results=True):
   test_patients = list(pd.read_csv("../analysis/martino2018/test_set.txt", header=None)[0])
   analysis_folder = "../analysis/martino2018/Mvalues_control_vs_allergic/"
   cell_types_m2018 = ["CD4T", "CD8T"]
 
-  likely_ratios = run_cell_specific_classifier(
+  likely_ratios, signif_cpgs, coe_change_signif = run_cell_specific_classifier(
       analysis_folder, cell_types_m2018, use_mvalues=True, p_value_thresh=p_value_thresh)
+  
   phenotypes = pd.read_csv(os.path.join(analysis_folder, "../phenotypes.csv"), index_col=0)
-
-  with open(os.path.join(analysis_folder, "likelihood_ratios.txt"), "w") as f:
-    for patient in likely_ratios:
-      f.write("{} {}\n".format(patient, likely_ratios[patient]))
 
   labels = {}
   for patient in test_patients:
     predicted_label = 1 if likely_ratios[patient] > likelihood_ratio else 0
-
-
     pheno_str = str(phenotypes.loc[patient, "allergy status:ch1"])
-
     true_label = MARTINO2018_LABEL_MAP[pheno_str]
     print("Patient {}: predicted={} true={}".format(patient, predicted_label, true_label))
     labels[patient] = (predicted_label, true_label)
@@ -332,7 +197,43 @@ def cs_2018_classifier(p_value_thresh, likelihood_ratio):
   print("==> Precision:", precision)
   print("==> Recall:", recall)
 
+  if write_results:
+    write_classifier_results(analysis_folder, p_value_thresh, likely_ratios, labels, precision,
+                             recall, signif_cpgs, coe_change_signif)
+
   return precision, recall
+
+
+def write_classifier_results(analysis_folder, p_value_thresh, likely_ratios, labels, precision,
+                             recall, signif_cpgs, coe_change_signif):
+  results_folder = os.path.join(analysis_folder, "results_{}".format(p_value_thresh))
+
+  if not os.path.exists(os.path.abspath(results_folder)):
+    print("NOTE: Making path {}".format(os.path.abspath(results_folder)))
+    os.mkdir(os.path.abspath(results_folder))
+
+  with open(os.path.join(results_folder, "likelihood_ratios.txt"), "w") as f:
+    f.write("patient likelihood_ratio\n")
+    for patient in likely_ratios:
+      f.write("{} {}\n".format(patient, likely_ratios[patient]))
+
+  with open(os.path.join(results_folder, "predicted_pheno.txt"), "w") as f:
+    f.write("patient predicted_pheno true_pheno\n")
+    for patient in labels:
+      f.write("{} {} {}\n".format(patient, labels[patient][0], labels[patient][1]))
+
+  with open(os.path.join(results_folder, "signif_cpgs.txt"), "w") as f:
+    for cpg in signif_cpgs:
+      f.write(str(cpg) + "\n")
+
+  coe_change_signif.to_csv(os.path.join(results_folder, "coe_change_signif.txt"))
+
+  with open(os.path.join(results_folder, "meta.txt"), "w") as f:
+    f.write("key value\n")
+    f.write("p_value_thresh {}\n".format(p_value_thresh))
+    f.write("precision {}\n".format(precision))
+    f.write("recall {}\n".format(recall))
+    f.write("signif_cpgs {}\n".format(len(signif_cpgs)))
 
 
 def precision_recall_vs_pvalue_thresh(function_to_run):
@@ -345,7 +246,7 @@ def precision_recall_vs_pvalue_thresh(function_to_run):
   likelihood_ratio = 1
 
   # for p_value_thresh in np.arange(0.05, 0.55, 0.05):
-  for p_value_thresh in np.arange(0.05, 0.15, 0.01):
+  for p_value_thresh in np.arange(0.005, 0.1, 0.005):
     pr, re = function_to_run(p_value_thresh, likelihood_ratio)
     
     with open("{}_pr_pvalue_thresh.txt".format(function_to_run.__name__), "a") as f:
@@ -373,7 +274,7 @@ def precision_recall_vs_cutoff(lr_files):
 
     phenotypes = pd.read_csv("../analysis/martino{}/phenotypes.csv".format(dataset), index_col=0)
 
-    for lr in np.arange(0.5, 2.0, 0.05):
+    for lr in np.arange(0.1, 100, 0.1):
       labels = {}
 
       for patient in test_patients:
@@ -419,10 +320,11 @@ def make_param_precision_recall_plot(pr_files):
 
 
 if __name__ == "__main__":  
-  # cs_2015_classifier(0.05, 1) # Do for PBMC.
+  bulk_2015_classifier(0.60, 1) # Do for BULK.
+  # cs_2015_classifier(0.01, 1) # Do for PBMC.
   # cs_2015_classifier(0.06, 1) # Do for ALL.
 
-  # bulk_2018_classifier(0.02, 1)
+  # bulk_2018_classifier(0.01, 1)
   # cs_2018_classifier(0.25, 1)
 
   # precision_recall_vs_pvalue_thresh(bulk_2018_classifier)
@@ -442,13 +344,13 @@ if __name__ == "__main__":
   # Best p-value cutoffs:
   # 2015 ALL: 0.06
   # 2015 PBMC: 0.05
-  # 2018 CD4: 0.02
+  # 2018 CD4: 0.01
   # 2018 CD4 and CD8: 0.25
 
-  lr_files = {
-    "2015_all": ("../analysis/likelihood_ratios/2015_all.txt", 2015),
-    "2015_pbmc": ("../analysis/likelihood_ratios/2015_pbmc.txt", 2015),
-    "2018_cd4": ("../analysis/likelihood_ratios/2018_cd4.txt", 2018),
-    "2018_cd4_cd8": ("../analysis/likelihood_ratios/2018_cd4_cd8.txt", 2018)
-  }
-  precision_recall_vs_cutoff(lr_files)
+  # lr_files = {
+  #   "2015_all": ("../analysis/likelihood_ratios/2015_all.txt", 2015),
+  #   "2015_pbmc": ("../analysis/likelihood_ratios/2015_pbmc.txt", 2015),
+  #   "2018_cd4": ("../analysis/likelihood_ratios/2018_cd4.txt", 2018),
+  #   "2018_cd4_cd8": ("../analysis/likelihood_ratios/2018_cd4_cd8.txt", 2018)
+  # }
+  # precision_recall_vs_cutoff(lr_files)
