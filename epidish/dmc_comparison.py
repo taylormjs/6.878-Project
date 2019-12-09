@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from collections import defaultdict
-from classifier_utils import *
+from naive_bayes_utils import *
 
 
 def plot_pvalue_histogram(analysis_folder, cell_types=None):
@@ -43,7 +43,7 @@ def compare_dmcs(dataset_dmc_sets):
   Report the DMCs that are (1) unique to each dataset and (2) shared between each pair of datasets.
   """
   print("---------------------------------------------------------------------")
-  names = list(dataset_dmc_sets.keys())
+  names = sorted(list(dataset_dmc_sets.keys()))
   summary = np.zeros((len(names), len(names)), dtype=np.int32)
   unique_dmcs = dataset_dmc_sets.copy()
   print(names)
@@ -74,13 +74,17 @@ def compare_dmcs(dataset_dmc_sets):
     #   print(" >>", dmc)
     summary[i, i] = int(len(unique_dmcs[name]))
   
-  print("\n============== SUMMARY ==============")
+  print("\n============== NUMBER OF CpGs SHARED ==============")
+  summary = pd.DataFrame(summary)
+  summary.columns = names
+  summary.index = names
   print(summary)
 
   for i in range(len(names)):
     for j in range(len(names)):
-      summary[i,j] /= min(len(dataset_dmc_sets[names[i]]), len(dataset_dmc_sets[names[i]]))
+      summary.iloc[i,j] /= min(len(dataset_dmc_sets[names[i]]), len(dataset_dmc_sets[names[i]]))
 
+  print("\n============= PERCENTAGE CpGs SHARED ===============")
   print(summary)
 
 
@@ -106,7 +110,7 @@ def save_signif_cpg_files(folders, cell_types_for_each, p_value_thresh):
 def load_signif_cpg_files(folders, dataset_names):
   dataset_dmc_sets = defaultdict(lambda: set())
   for i, analysis_folder in enumerate(folders):
-    with open(os.path.join(analysis_folder, "signif_cpg.txt"), "r") as f:
+    with open(os.path.join(analysis_folder, "signif_cpgs.txt"), "r") as f:
       for l in f:
         l = l.replace("\n", "")
         dataset_dmc_sets[dataset_names[i]].add(l)
@@ -114,59 +118,99 @@ def load_signif_cpg_files(folders, dataset_names):
   return dataset_dmc_sets
 
 
-def dmc_comparison_main():
-  folders = [
-    # "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/",
-    # "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/",
-    # "../analysis/martino2018/Mvalues_control_vs_allergic/",
-    "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/",
-    "../analysis/martino2018/shap/"
-  ]
-  names = [
-    # "2015_all",
-    # "2015_pbmc",
-    # "2018_cd4_cd8",
-    "2018_cd4",
-    "2018_shap"
-  ]
-  cell_types_for_each = [
-    # ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"],
-    # ["B", "NK", "CD4T", "CD8T", "Mono"],
-    # ["CD4T", "CD8T"],
-    None,
-    None
+def load_signif_cpg_files_full_path(paths, dataset_names):
+  dataset_dmc_sets = defaultdict(lambda: set())
+  for i, path in enumerate(paths):
+    with open(path, "r") as f:
+      for l in f:
+        l = l.replace("\n", "")
+        dataset_dmc_sets[dataset_names[i]].add(l)
+
+  return dataset_dmc_sets
+
+
+def compare_feature_dmcs_main():
+  dmc_feature_folders = [
+    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/results_0.06/",
+    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_bulk/results_0.7/",
+    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/results_0.01/",
+    "../analysis/martino2018/Mvalues_control_vs_allergic/results_0.25/",
+    "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/results_0.01/",
+    "../analysis/martino2018/shap/",
+    "../analysis/martino2015/shap/"
   ]
 
-  # save_signif_cpg_files(folders, cell_types_for_each, 0.05)
-  dataset_dmc_sets = load_signif_cpg_files(folders, names)
+  names = [
+    "2015_all",
+    "2015_bulk",
+    "2015_pbmc",
+    "2018_cd4_cd8",
+    "2018_cd4",
+    "2018_shap",
+    "2015_shap"
+  ]
+
+  dataset_dmc_sets = load_signif_cpg_files(dmc_feature_folders, names)
   compare_dmcs(dataset_dmc_sets)
 
 
+def compare_signif_dmcs_main():
+  dmc_cutoff_01 = [
+    "../analysis/signif_cpgs/2015_all.txt",
+    "../analysis/signif_cpgs/2015_bulk.txt",
+    "../analysis/signif_cpgs/2015_pbmc_0.1.txt",
+    "../analysis/signif_cpgs/2018_cd4_cd8_0.1.txt",
+    "../analysis/signif_cpgs/2018_bulk_0.1.txt",
+    "../analysis/signif_cpgs/shap_2018.txt",
+    "../analysis/signif_cpgs/shap_2015.txt"
+  ]
+
+  names = [
+    "2015_all",
+    "2015_bulk",
+    "2015_pbmc",
+    "2018_cd4_cd8",
+    "2018_cd4",
+    "2018_shap",
+    "2015_shap"
+  ]
+
+  dataset_dmc_sets = load_signif_cpg_files_full_path(dmc_cutoff_01, names)
+  compare_dmcs(dataset_dmc_sets)
+
+
+def pvalue_histogram_main():
+  folders = [
+    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_eosino/",
+    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_neutro/",
+    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/",
+    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/",
+    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_bulk/",
+    "../analysis/martino2018/Mvalues_control_vs_allergic/",
+    "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/"
+  ]
+
+  cell_types_for_each = [
+    ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"],
+    ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro"],
+    ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"],
+    ["B", "NK", "CD4T", "CD8T", "Mono"],
+    None,
+    ["CD4T", "CD8T"],
+    None
+  ]
+
+  for i in range(len(folders)):
+    folder = folders[i]
+    print(">> Plotting histograms for folder {}".format(folder))
+    cell_types = cell_types_for_each[i]
+    plot_pvalue_histogram(folder, cell_types)
+
 if __name__ == "__main__":
-  # folders = [
-  #   "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_eosino/",
-  #   "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_neutro/",
-  #   "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/",
-  #   "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/",
-  #   "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_bulk/",
-  #   "../analysis/martino2018/Mvalues_control_vs_allergic/",
-  #   "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/"
-  # ]
+  # pvalue_histogram_main()
 
-  # cell_types_for_each = [
-  #   ["B", "NK", "CD4T", "CD8T", "Mono", "Eosino"],
-  #   ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro"],
-  #   ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"],
-  #   ["B", "NK", "CD4T", "CD8T", "Mono"],
-  #   None,
-  #   ["CD4T", "CD8T"],
-  #   None
-  # ]
+  # Compare shared DMCs across all datasets, using a p-value threshold of 0.1.
+  compare_signif_dmcs_main()
 
-  # for i in range(len(folders)):
-  #   folder = folders[i]
-  #   print(">> Plotting histograms for folder {}".format(folder))
-  #   cell_types = cell_types_for_each[i]
-  #   plot_pvalue_histogram(folder, cell_types)
-
-  dmc_comparison_main()
+  # Compare shared DMC features across all CLASSIFIERS.
+  # compare_feature_dmcs_main()

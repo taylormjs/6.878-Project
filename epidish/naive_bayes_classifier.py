@@ -334,9 +334,48 @@ def make_param_precision_recall_plot(pr_files):
   plt.show()
 
 
+def report_significant_cpgs_main():
+  analysis_folders = [
+    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_bulk/",
+    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/" ,
+    "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/",
+    "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/",
+    "../analysis/martino2018/Mvalues_control_vs_allergic/"
+  ]
+
+  cell_types = [
+    None,
+    ["B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"],
+    ["B", "NK", "CD4T", "CD8T", "Mono"],
+    None,
+    ["CD4T", "CD8T"]
+  ]
+
+  p_value_thresh = [
+    0.70,
+    0.06,
+    0.01,
+    0.01,
+    0.25
+  ]
+
+  for i in range(len(analysis_folders)):
+    folder = analysis_folders[i]
+    ct = cell_types[i]
+    print("=============== DATASET: {} ================".format(folder))
+    print(">> p_value_thresh={}".format(p_value_thresh[i]))
+
+    coe_change = pd.read_csv(os.path.join(folder, "coe_change.csv"), index_col=0)
+
+    if ct is None:
+      report_significant_cpgs_bulk(coe_change, p_value_thresh[i])
+    else:
+      report_significant_cpgs(ct, coe_change, p_value_thresh[i])
+
+
 if __name__ == "__main__":
   #==================== RUN CLASSIFIERS WITH BEST PARAMS =====================
-  bulk_2015_classifier(0.60, 1) # Do for BULK.
+  # bulk_2015_classifier(0.60, 1) # Do for BULK.
   # cs_2015_classifier(0.01, 1) # Do for PBMC.
   # cs_2015_classifier(0.06, 1) # Do for ALL.
 
@@ -371,3 +410,5 @@ if __name__ == "__main__":
   #   "2018_cd4_cd8": ("../analysis/likelihood_ratios/2018_cd4_cd8.txt", 2018)
   # }
   # precision_recall_vs_cutoff(lr_files)
+
+  report_significant_cpgs_main()

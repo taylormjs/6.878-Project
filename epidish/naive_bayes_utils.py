@@ -80,6 +80,8 @@ def report_significant_cpgs(cell_types, coe_change, p_value_thresh=0.05):
     for cpg_name in p_values.index:
       signif_set.add(cpg_name)
   
+  print("Found {} total CpGs".format(len(signif_set)))
+  
   return sorted(list(signif_set))
 
 
