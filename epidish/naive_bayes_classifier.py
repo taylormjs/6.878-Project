@@ -80,7 +80,7 @@ def run_bulk_classifier(analysis_folder, use_mvalues=True, p_value_thresh=0.05):
 
 def cs_2015_classifier(p_value_thresh, likelihood_ratio, write_results=True):
   """
-  Extract significant CpG locations and classify patients from Martino 2015 using them.
+  Cell-specific Naive-Bayes classifier for Martino 2015.
   """
   # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/" 
   # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_neutro/"
@@ -117,6 +117,9 @@ def cs_2015_classifier(p_value_thresh, likelihood_ratio, write_results=True):
 
 
 def bulk_2015_classifier(p_value_thresh, likelihood_ratio, write_results=True):
+  """
+  Bulk Naive-Bayes classifier for Martino 2015.
+  """
   test_patients = list(pd.read_csv("../analysis/martino2015/test_set.txt", header=None)[0])
   analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_bulk/"
 
@@ -146,6 +149,12 @@ def bulk_2015_classifier(p_value_thresh, likelihood_ratio, write_results=True):
 
 
 def bulk_2018_classifier(p_value_thresh, likelihood_ratio, write_results=True):
+  """
+  Bulk Naive-Bayes classifier for Martino 2018.
+
+  NOTE(milo): Because Martino2018 data is supposedly only CD4T cells, "bulk" means CD4T only in this
+  case.
+  """
   test_patients = list(pd.read_csv("../analysis/martino2018/test_set.txt", header=None)[0])
   analysis_folder = "../analysis/martino2018/Mvalues_control_vs_allergic_bulk/"
 
@@ -175,6 +184,9 @@ def bulk_2018_classifier(p_value_thresh, likelihood_ratio, write_results=True):
 
 
 def cs_2018_classifier(p_value_thresh, likelihood_ratio, write_results=True):
+  """
+  Cell-specific Naive-Bayes classifier for Martino 2018.
+  """
   test_patients = list(pd.read_csv("../analysis/martino2018/test_set.txt", header=None)[0])
   analysis_folder = "../analysis/martino2018/Mvalues_control_vs_allergic/"
   cell_types_m2018 = ["CD4T", "CD8T"]
@@ -206,6 +218,9 @@ def cs_2018_classifier(p_value_thresh, likelihood_ratio, write_results=True):
 
 def write_classifier_results(analysis_folder, p_value_thresh, likely_ratios, labels, precision,
                              recall, signif_cpgs, coe_change_signif):
+  """
+  Write results from running a classifier to disk.
+  """
   results_folder = os.path.join(analysis_folder, "results_{}".format(p_value_thresh))
 
   if not os.path.exists(os.path.abspath(results_folder)):
@@ -319,7 +334,8 @@ def make_param_precision_recall_plot(pr_files):
   plt.show()
 
 
-if __name__ == "__main__":  
+if __name__ == "__main__":
+  #==================== RUN CLASSIFIERS WITH BEST PARAMS =====================
   bulk_2015_classifier(0.60, 1) # Do for BULK.
   # cs_2015_classifier(0.01, 1) # Do for PBMC.
   # cs_2015_classifier(0.06, 1) # Do for ALL.
@@ -327,6 +343,7 @@ if __name__ == "__main__":
   # bulk_2018_classifier(0.01, 1)
   # cs_2018_classifier(0.25, 1)
 
+  #=================== PRECISION-RECALL PLOTTING ============================
   # precision_recall_vs_pvalue_thresh(bulk_2018_classifier)
   # precision_recall_vs_pvalue_thresh(cs_2018_classifier)
 
