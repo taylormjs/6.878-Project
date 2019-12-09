@@ -278,22 +278,27 @@ def precision_recall_vs_cutoff(lr_files):
   fig, axs = plt.subplots()
 
   for name in lr_files:
+    print(name)
     precisions = []
     recalls = []
 
     fname, dataset = lr_files[name]
-    patient_and_ratio = pd.read_csv(fname, header=None, index_col=0, delim_whitespace=True, names=["patient", "ratio"])
+    patient_and_ratio = pd.read_csv(fname, header=0, delim_whitespace=True, index_col="patient")
+    # print(patient_and_ratio)
 
     test_set_fname = "../analysis/martino{}/test_set.txt".format(dataset)
     test_patients = pd.read_csv(test_set_fname, header=None)[0]
+    # print(test_patients)
+    # print(patient_and_ratio)
 
     phenotypes = pd.read_csv("../analysis/martino{}/phenotypes.csv".format(dataset), index_col=0)
+    all_ratios = list(patient_and_ratio["likelihood_ratio"])
 
-    for lr in np.arange(0.1, 100, 0.1):
+    for lr in sorted(all_ratios):
       labels = {}
 
       for patient in test_patients:
-        predicted_label = 1 if patient_and_ratio.loc[patient, "ratio"] >= lr else 0
+        predicted_label = 1 if patient_and_ratio.loc[patient, "likelihood_ratio"] >= lr else 0
 
         pheno_str = str(phenotypes.loc[patient,"allergy status:ch1" if dataset == 2018 else "challenge outcome:ch1"])
         true_label = MARTINO2018_LABEL_MAP[pheno_str] if dataset == 2018 else MARTINO2015_LABEL_MAP[pheno_str]
@@ -351,13 +356,15 @@ def report_significant_cpgs_main():
     ["CD4T", "CD8T"]
   ]
 
-  p_value_thresh = [
-    0.70,
-    0.06,
-    0.01,
-    0.01,
-    0.25
-  ]
+  # p_value_thresh = [
+  #   0.70,
+  #   0.06,
+  #   0.01,
+  #   0.01,
+  #   0.25
+  # ]
+
+  p_value_thresh = [0.05 for _ in range(5)]
 
   for i in range(len(analysis_folders)):
     folder = analysis_folders[i]
@@ -403,12 +410,13 @@ if __name__ == "__main__":
   # 2018 CD4: 0.01
   # 2018 CD4 and CD8: 0.25
 
-  # lr_files = {
-  #   "2015_all": ("../analysis/likelihood_ratios/2015_all.txt", 2015),
-  #   "2015_pbmc": ("../analysis/likelihood_ratios/2015_pbmc.txt", 2015),
-  #   "2018_cd4": ("../analysis/likelihood_ratios/2018_cd4.txt", 2018),
-  #   "2018_cd4_cd8": ("../analysis/likelihood_ratios/2018_cd4_cd8.txt", 2018)
-  # }
-  # precision_recall_vs_cutoff(lr_files)
+  lr_files = {
+    "NB_2015_BULK": ("../analysis/martino2015/Mvalues_nonallergic_vs_allergic_bulk/results_0.7/likelihood_ratios.txt", 2015),
+    "NB_2015_ALL": ("../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/results_0.06/likelihood_ratios.txt", 2015),
+    "NB_2015_PBMC": ("../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/results_0.01/likelihood_ratios.txt", 2015),
+    "NB_2018_CD4": ("../analysis/martino2018/Mvalues_control_vs_allergic_bulk/results_0.01/likelihood_ratios.txt", 2018),
+    "NB_2018_CD4_CD8": ("../analysis/martino2018/Mvalues_control_vs_allergic/results_0.25/likelihood_ratios.txt", 2018)
+  }
+  precision_recall_vs_cutoff(lr_files)
 
-  report_significant_cpgs_main()
+  # report_significant_cpgs_main()

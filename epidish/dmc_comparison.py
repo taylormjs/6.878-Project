@@ -80,12 +80,15 @@ def compare_dmcs(dataset_dmc_sets):
   summary.index = names
   print(summary)
 
-  for i in range(len(names)):
-    for j in range(len(names)):
-      summary.iloc[i,j] /= min(len(dataset_dmc_sets[names[i]]), len(dataset_dmc_sets[names[i]]))
+  summary.to_csv("./shared_cpg_matrix.csv")
+  return summary
 
-  print("\n============= PERCENTAGE CpGs SHARED ===============")
-  print(summary)
+  # for i in range(len(names)):
+  #   for j in range(len(names)):
+  #     summary.iloc[i,j] /= min(len(dataset_dmc_sets[names[i]]), len(dataset_dmc_sets[names[i]]))
+
+  # print("\n============= PERCENTAGE CpGs SHARED ===============")
+  # print(summary)
 
 
 def save_signif_cpg_files(folders, cell_types_for_each, p_value_thresh):
@@ -141,13 +144,13 @@ def compare_feature_dmcs_main():
   ]
 
   names = [
-    "2015_all",
-    "2015_bulk",
-    "2015_pbmc",
-    "2018_cd4_cd8",
-    "2018_cd4",
-    "2018_shap",
-    "2015_shap"
+    "2015_ALL",
+    "2015_BULK",
+    "2015_PBMC",
+    "2018_CD4_CD8",
+    "2018_CD4",
+    "2018_XGB_SHAP",
+    "2015_XGB_SHAP"
   ]
 
   dataset_dmc_sets = load_signif_cpg_files(dmc_feature_folders, names)
@@ -166,17 +169,39 @@ def compare_signif_dmcs_main():
   ]
 
   names = [
-    "2015_all",
-    "2015_bulk",
-    "2015_pbmc",
-    "2018_cd4_cd8",
-    "2018_cd4",
-    "2018_shap",
-    "2015_shap"
+    "NB_2015_ALL",
+    "NB_2015_BULK",
+    "NB_2015_PBMC",
+    "NB_2018_CD4_CD8",
+    "NB_2018_CD4",
+    "XGB_2018_BULK",
+    "XGB_2015_BULK"
   ]
 
   dataset_dmc_sets = load_signif_cpg_files_full_path(dmc_cutoff_01, names)
-  compare_dmcs(dataset_dmc_sets)
+  names = sorted(dataset_dmc_sets.keys())
+  dmcs = compare_dmcs(dataset_dmc_sets)
+
+  fig, ax = plt.subplots()
+  im = ax.imshow(dmcs.to_numpy() > 0, cmap="coolwarm")
+
+  ax.set_xticks(np.arange(len(names)))
+  ax.set_yticks(np.arange(len(names)))
+  ax.set_xticklabels(names)
+  ax.set_yticklabels(names)
+
+  # Rotate the tick labels and set their alignment.
+  plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+          rotation_mode="anchor")
+
+  # Loop over data dimensions and create text annotations.
+  for i in range(len(names)):
+    for j in range(len(names)):
+      text = ax.text(j, i, dmcs.to_numpy()[i, j], ha="center", va="center", color="w")
+
+  ax.set_title("Comparison of DMCs from Naive Bayes and Random Forest")
+  fig.tight_layout()
+  plt.show()
 
 
 def pvalue_histogram_main():
@@ -205,6 +230,7 @@ def pvalue_histogram_main():
     print(">> Plotting histograms for folder {}".format(folder))
     cell_types = cell_types_for_each[i]
     plot_pvalue_histogram(folder, cell_types)
+
 
 if __name__ == "__main__":
   # pvalue_histogram_main()
