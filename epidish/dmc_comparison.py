@@ -165,7 +165,9 @@ def compare_signif_dmcs_main():
     "../analysis/signif_cpgs/2018_cd4_cd8_0.1.txt",
     "../analysis/signif_cpgs/2018_bulk_0.1.txt",
     "../analysis/signif_cpgs/shap_2018.txt",
-    "../analysis/signif_cpgs/shap_2015.txt"
+    "../analysis/signif_cpgs/shap_2015.txt",
+    "../analysis/signif_cpgs/2018_martino2.txt",
+    "../analysis/signif_cpgs/2018_martino4.txt"
   ]
 
   names = [
@@ -175,7 +177,9 @@ def compare_signif_dmcs_main():
     "NB_2018_CD4_CD8",
     "NB_2018_CD4",
     "XGB_2018_BULK",
-    "XGB_2015_BULK"
+    "XGB_2015_BULK",
+    "MARTINO2018_2",
+    "MARTINO2018_4"
   ]
 
   dataset_dmc_sets = load_signif_cpg_files_full_path(dmc_cutoff_01, names)

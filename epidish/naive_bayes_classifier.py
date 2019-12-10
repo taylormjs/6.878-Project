@@ -82,6 +82,7 @@ def cs_2015_classifier(p_value_thresh, likelihood_ratio, write_results=True):
   """
   Cell-specific Naive-Bayes classifier for Martino 2015.
   """
+  test_patients = list(pd.read_csv("../analysis/martino2015/test_set.txt", header=None)[0])
   # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/" 
   # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_neutro/"
   # analysis_folder = "../analysis/martino2015/Mvalues_nonallergic_vs_allergic_with_eosino/"
@@ -97,7 +98,7 @@ def cs_2015_classifier(p_value_thresh, likelihood_ratio, write_results=True):
   phenotypes = pd.read_csv(os.path.join(analysis_folder, "../phenotypes.csv"), index_col=0)
 
   labels = {}
-  for patient in likely_ratios:
+  for patient in test_patients:
     predicted_label = 1 if likely_ratios[patient] > likelihood_ratio else 0
     pheno_str = str(phenotypes.loc[patient,"challenge outcome:ch1"])
     true_label = MARTINO2015_LABEL_MAP[pheno_str]
@@ -293,6 +294,7 @@ def precision_recall_vs_cutoff(lr_files):
 
     phenotypes = pd.read_csv("../analysis/martino{}/phenotypes.csv".format(dataset), index_col=0)
     all_ratios = list(patient_and_ratio["likelihood_ratio"])
+    all_ratios.append(1.0)
 
     for lr in sorted(all_ratios):
       labels = {}
@@ -310,7 +312,16 @@ def precision_recall_vs_cutoff(lr_files):
       precisions.append(pr)
       recalls.append(re)
 
-    axs.plot(recalls, precisions, label=name)
+    # print(list(zip(precisions, recalls)))
+    # print(precisions)
+    # print(recalls)  
+
+    axs.plot(recalls, precisions, marker="o", markersize=0.1, label=name, linestyle="--")
+
+  # COMPARE WITH BASELINE
+  recalls_m2015 = np.array([1.    , 0.9655, 0.931 , 0.931 , 0.8966, 0.8966, 0.8276, 0.8276])
+  precision_m2015 = np.array([0.78376048, 0.79998343, 0.81817383, 0.87098887, 0.8966, 0.96294705, 0.95998144, 1.        ])
+  axs.plot(recalls_m2015, precision_m2015, marker="o", markersize=0.1, label="2015_BASELINE", linestyle="--")
 
   axs.legend()
   axs.set_title("Classifier Precision and Recall")
@@ -413,7 +424,7 @@ if __name__ == "__main__":
   lr_files = {
     "NB_2015_BULK": ("../analysis/martino2015/Mvalues_nonallergic_vs_allergic_bulk/results_0.7/likelihood_ratios.txt", 2015),
     "NB_2015_ALL": ("../analysis/martino2015/Mvalues_nonallergic_vs_allergic_all/results_0.06/likelihood_ratios.txt", 2015),
-    "NB_2015_PBMC": ("../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/results_0.01/likelihood_ratios.txt", 2015),
+    "NB_2015_PBMC": ("../analysis/martino2015/Mvalues_nonallergic_vs_allergic_only_pbmc/results_0.05/likelihood_ratios.txt", 2015),
     "NB_2018_CD4": ("../analysis/martino2018/Mvalues_control_vs_allergic_bulk/results_0.01/likelihood_ratios.txt", 2018),
     "NB_2018_CD4_CD8": ("../analysis/martino2018/Mvalues_control_vs_allergic/results_0.25/likelihood_ratios.txt", 2018)
   }
