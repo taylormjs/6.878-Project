@@ -9,6 +9,7 @@
 
 # ..even if they are in sub-folders
 !*/
+!*.R
 
 
 # Ignore jupyter nb checkpoints (which contains ipynb files)
@@ -16,6 +17,10 @@
 *.ipynb_checkpoints/*
 
 # ignore pycharm folders
+<<<<<<< HEAD
 __pycache__
 
 .Rproj.user
+=======
+__pycache__
+>>>>>>> 3e7746af408b0f18ac629186061d757cab8bb8ba
